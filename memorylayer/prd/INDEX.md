@@ -20,6 +20,7 @@ This folder contains the complete product documentation for MemoryLayer v1.0.
 | [OPENCODE-SETUP.md](./OPENCODE-SETUP.md) | OpenCode integration guide | End users |
 | [BENEFITS.md](./BENEFITS.md) | Simple explanation of benefits | Everyone |
 | [RESULTS.md](./RESULTS.md) | Quality comparison results | Everyone |
+| [COMPETITORS.md](./COMPETITORS.md) | Competitor analysis & market positioning | Product, Business |
 | [PRD.md](./PRD.md) | Full product requirements | Product, Engineering |
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Technical architecture | Engineering |
 | [API.md](./API.md) | MCP tools & resources reference | Engineering, AI developers |
