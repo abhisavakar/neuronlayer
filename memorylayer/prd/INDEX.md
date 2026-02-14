@@ -29,6 +29,7 @@ This folder contains the complete product documentation for MemoryLayer v1.0.
 | [ROADMAP.md](./ROADMAP.md) | Product roadmap & phases | Product, Stakeholders |
 | [METRICS.md](./METRICS.md) | Success metrics & KPIs | Product, Leadership |
 | [BENCHMARK-RESULTS.md](./BENCHMARK-RESULTS.md) | Performance comparison tests | Engineering, Product |
+| [BENCHMARK-REPORT.md](./BENCHMARK-REPORT.md) | Full 10x10 test report with scores | Engineering, Product |
 
 ---
 
