@@ -587,6 +587,143 @@ function isFeatureEnabled(feature: string, license: License): boolean {
 
 ---
 
+## AI Infrastructure & Privacy
+
+### The Privacy Problem
+
+Every AI coding tool sends code to cloud:
+
+| Tool | Where Code Goes | Privacy |
+|------|-----------------|---------|
+| GitHub Copilot | Microsoft servers | ❌ |
+| Cursor | OpenAI servers | ❌ |
+| Claude Code | Anthropic servers | ❌ |
+| ChatGPT | OpenAI servers | ❌ |
+
+**Enterprises won't adopt tools that leak their code.**
+
+### Our Solution: AWS Bedrock
+
+```
+┌─────────────────────────────────────────────────────────┐
+│              MEMORYLAYER AI ARCHITECTURE                │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  v1.0 (CURRENT) - 100% LOCAL                           │
+│  ├── Embeddings: transformers.js (local)               │
+│  ├── Search: SQLite (local)                            │
+│  ├── Storage: File system (local)                      │
+│  └── AI: None (no cloud calls)                         │
+│                                                         │
+│  v1.1 (PLANNED) - BEDROCK-POWERED                      │
+│  ├── Core: Still 100% local                            │
+│  └── AI Features: AWS Bedrock                          │
+│      ├── SOC2, HIPAA, GDPR compliant                  │
+│      ├── Data NOT used for training                    │
+│      ├── Enterprise already trusts AWS                 │
+│      └── We manage nothing                             │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Why Bedrock (Not OpenAI/Direct Claude)
+
+| Concern | OpenAI/Claude Direct | AWS Bedrock |
+|---------|---------------------|-------------|
+| Compliance | Limited | SOC2, HIPAA, GDPR |
+| Data training | Unclear | Never trained on |
+| Enterprise trust | Low | Already use AWS |
+| VPC deployment | No | Yes |
+| Our infrastructure | Need servers | Zero |
+
+### Credit-Based Pricing
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                  CREDIT SYSTEM                          │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  1 credit = 1 AI operation                              │
+│  ├── Code explanation: 1 credit                        │
+│  ├── Context summarization: 2 credits                  │
+│  ├── Root cause analysis: 1 credit                     │
+│  └── Test generation: 2 credits                        │
+│                                                         │
+│  TIER ALLOCATION:                                       │
+│  ├── Free: 0 credits (no AI features)                  │
+│  ├── Pro ($9/mo): 500 credits/month                    │
+│  ├── Team ($29/user): 2000 credits/user/month          │
+│  └── Enterprise: Unlimited (their Bedrock)             │
+│                                                         │
+│  OVERAGE: $0.02/credit                                  │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Privacy Tiers
+
+| Tier | AI Backend | Code Privacy | Best For |
+|------|------------|--------------|----------|
+| **Free** | None | 100% local | Privacy-first users |
+| **Pro** | Our Bedrock | AWS compliant | Most developers |
+| **Team** | Our Bedrock | AWS compliant | Small teams |
+| **Enterprise** | Their Bedrock | 100% their infra | Large orgs |
+
+### Enterprise Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│              ENTERPRISE DEPLOYMENT                       │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  Customer's AWS Account                                 │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │  Customer's VPC                                  │   │
+│  │  ┌─────────────┐    ┌─────────────────────┐     │   │
+│  │  │ MemoryLayer │───→│ Customer's Bedrock  │     │   │
+│  │  │   Server    │    │  (Claude/Llama)     │     │   │
+│  │  └─────────────┘    └─────────────────────┘     │   │
+│  │         │                                        │   │
+│  │         ▼                                        │   │
+│  │  ┌─────────────┐                                │   │
+│  │  │ Customer's  │                                │   │
+│  │  │   RDS/S3    │                                │   │
+│  │  └─────────────┘                                │   │
+│  └─────────────────────────────────────────────────┘   │
+│                                                         │
+│  What we provide: Software license + support            │
+│  What they provide: All infrastructure                  │
+│  Code exposure: ZERO to us                              │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Privacy Marketing
+
+This becomes our **biggest differentiator**:
+
+> **"MemoryLayer: Enterprise AI that never sees your code"**
+>
+> - Core features: 100% local
+> - AI features: AWS Bedrock (compliant)
+> - Enterprise: Your AWS, your data
+> - We never see your code. Ever.
+
+### Cost Structure
+
+| Component | Our Cost | User Pays |
+|-----------|----------|-----------|
+| Bedrock API (Pro) | ~$3/user/month | Included in $9 |
+| Bedrock API (Team) | ~$5/user/month | Included in $29 |
+| Enterprise | $0 (their AWS) | License fee only |
+
+**Margin:**
+- Pro: $9 - $3 = $6 profit (67%)
+- Team: $29 - $5 = $24 profit (83%)
+- Enterprise: 100% margin (license only)
+
+---
+
 ## Key Metrics to Track
 
 ### Product Metrics
