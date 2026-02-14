@@ -1,0 +1,110 @@
+import type Database from 'better-sqlite3';
+import type { Tier2Storage } from '../../storage/tier2.js';
+import { ArchitectureGenerator } from './architecture-generator.js';
+import { ComponentGenerator } from './component-generator.js';
+import { ChangelogGenerator } from './changelog-generator.js';
+import { DocValidator } from './doc-validator.js';
+import { ActivityTracker } from './activity-tracker.js';
+import type {
+  ArchitectureDoc,
+  ComponentDoc,
+  DailyChangelog,
+  ChangelogOptions,
+  ValidationResult,
+  ActivityResult,
+  UndocumentedItem
+} from '../../types/documentation.js';
+
+export class LivingDocumentationEngine {
+  private archGen: ArchitectureGenerator;
+  private compGen: ComponentGenerator;
+  private changeGen: ChangelogGenerator;
+  private validator: DocValidator;
+  private activityTracker: ActivityTracker;
+  private db: Database.Database;
+
+  constructor(
+    projectPath: string,
+    dataDir: string,
+    db: Database.Database,
+    tier2: Tier2Storage
+  ) {
+    this.db = db;
+    this.archGen = new ArchitectureGenerator(projectPath, tier2);
+    this.compGen = new ComponentGenerator(projectPath, tier2);
+    this.changeGen = new ChangelogGenerator(projectPath, db);
+    this.validator = new DocValidator(projectPath, tier2, db);
+    this.activityTracker = new ActivityTracker(projectPath, db, tier2);
+  }
+
+  async generateArchitectureDocs(): Promise<ArchitectureDoc> {
+    const doc = await this.archGen.generate();
+
+    // Log activity
+    this.activityTracker.logActivity(
+      'doc_generation',
+      'Generated architecture documentation',
+      undefined,
+      { type: 'architecture' }
+    );
+
+    return doc;
+  }
+
+  async generateComponentDoc(filePath: string): Promise<ComponentDoc> {
+    const doc = await this.compGen.generate(filePath);
+
+    // Store in documentation table for tracking
+    this.storeDocumentation(filePath, 'component', JSON.stringify(doc));
+
+    // Log activity
+    this.activityTracker.logActivity(
+      'doc_generation',
+      `Generated component documentation for ${filePath}`,
+      filePath,
+      { type: 'component' }
+    );
+
+    return doc;
+  }
+
+  async generateChangelog(options: ChangelogOptions = {}): Promise<DailyChangelog[]> {
+    return this.changeGen.generate(options);
+  }
+
+  async validateDocs(): Promise<ValidationResult> {
+    return this.validator.validate();
+  }
+
+  async whatHappened(since: string, scope?: string): Promise<ActivityResult> {
+    return this.activityTracker.whatHappened(since, scope);
+  }
+
+  async findUndocumented(options?: {
+    importance?: 'low' | 'medium' | 'high' | 'all';
+    type?: 'file' | 'function' | 'class' | 'interface' | 'all';
+  }): Promise<UndocumentedItem[]> {
+    return this.validator.findUndocumented(options);
+  }
+
+  private storeDocumentation(filePath: string, docType: string, content: string): void {
+    try {
+      // Get file ID
+      const fileStmt = this.db.prepare('SELECT id FROM files WHERE path = ?');
+      const fileRow = fileStmt.get(filePath) as { id: number } | undefined;
+
+      if (fileRow) {
+        const stmt = this.db.prepare(`
+          INSERT INTO documentation (file_id, doc_type, content, generated_at)
+          VALUES (?, ?, ?, unixepoch())
+          ON CONFLICT(file_id, doc_type) DO UPDATE SET
+            content = excluded.content,
+            generated_at = unixepoch()
+        `);
+        stmt.run(fileRow.id, docType, content);
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }
+}

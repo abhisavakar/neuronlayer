@@ -173,3 +173,50 @@ export interface SymbolSearchResult {
   preview: string;
   relevance: number;
 }
+
+// Phase 5: Active Feature Context types
+
+export interface FeatureFile {
+  path: string;
+  lastTouched: Date;
+  touchCount: number;
+  recentLines: number[];
+}
+
+export interface FeatureChange {
+  file: string;
+  timestamp: Date;
+  diff: string;
+  linesChanged: number[];
+}
+
+export interface FeatureQuery {
+  query: string;
+  timestamp: Date;
+  filesUsed: string[];
+}
+
+export interface ActiveFeatureContext {
+  id: string;
+  name: string;
+  files: FeatureFile[];
+  changes: FeatureChange[];
+  queries: FeatureQuery[];
+  startedAt: Date;
+  lastActiveAt: Date;
+  status: 'active' | 'paused' | 'completed';
+}
+
+export interface HotContext {
+  files: Array<{
+    path: string;
+    content: string | null;
+    touchCount: number;
+  }>;
+  changes: FeatureChange[];
+  queries: FeatureQuery[];
+  summary: string;
+}
+
+// Re-export documentation types
+export * from './documentation.js';

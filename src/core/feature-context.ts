@@ -1,0 +1,433 @@
+import { EventEmitter } from 'events';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { dirname, join, basename } from 'path';
+import { randomUUID } from 'crypto';
+import type { ActiveFeatureContext, FeatureFile, FeatureChange, FeatureQuery, HotContext } from '../types/index.js';
+
+const MAX_FILES = 20;
+const MAX_CHANGES = 50;
+const MAX_QUERIES = 20;
+const MAX_RECENT_CONTEXTS = 5;
+const TTL_MINUTES = 30;
+const HOT_CACHE_MAX_FILES = 15;
+
+export class FeatureContextManager extends EventEmitter {
+  private current: ActiveFeatureContext | null = null;
+  private recent: ActiveFeatureContext[] = [];
+  private fileContents: Map<string, string> = new Map();
+  private projectPath: string;
+  private dataDir: string;
+  private persistPath: string;
+  private inactivityTimer: NodeJS.Timeout | null = null;
+
+  constructor(projectPath: string, dataDir: string) {
+    super();
+    this.projectPath = projectPath;
+    this.dataDir = dataDir;
+    this.persistPath = join(dataDir, 'feature-context.json');
+    this.load();
+    this.startInactivityTimer();
+  }
+
+  // ========== FILE TRACKING ==========
+
+  onFileOpened(filePath: string): void {
+    this.ensureContext();
+    this.touchFile(filePath);
+    this.preloadFile(filePath);
+  }
+
+  onFileEdited(filePath: string, diff: string, linesChanged: number[] = []): void {
+    this.ensureContext();
+    this.touchFile(filePath);
+    this.recordChange(filePath, diff, linesChanged);
+  }
+
+  private touchFile(filePath: string): void {
+    if (!this.current) return;
+
+    // Normalize path to relative
+    const relativePath = this.toRelativePath(filePath);
+    const existing = this.current.files.find(f => f.path === relativePath);
+
+    if (existing) {
+      existing.lastTouched = new Date();
+      existing.touchCount++;
+    } else {
+      this.current.files.push({
+        path: relativePath,
+        lastTouched: new Date(),
+        touchCount: 1,
+        recentLines: []
+      });
+
+      // Trim if over limit - keep most touched files
+      if (this.current.files.length > MAX_FILES) {
+        this.current.files = this.current.files
+          .sort((a, b) => b.touchCount - a.touchCount)
+          .slice(0, MAX_FILES);
+      }
+    }
+
+    this.current.lastActiveAt = new Date();
+    this.save();
+  }
+
+  // ========== CHANGE TRACKING ==========
+
+  private recordChange(filePath: string, diff: string, linesChanged: number[]): void {
+    if (!this.current) return;
+
+    const relativePath = this.toRelativePath(filePath);
+
+    this.current.changes.unshift({
+      file: relativePath,
+      timestamp: new Date(),
+      diff: diff.slice(0, 200), // Limit diff size
+      linesChanged
+    });
+
+    // Trim old changes
+    if (this.current.changes.length > MAX_CHANGES) {
+      this.current.changes = this.current.changes.slice(0, MAX_CHANGES);
+    }
+
+    // Update file's recent lines
+    const fileEntry = this.current.files.find(f => f.path === relativePath);
+    if (fileEntry && linesChanged.length > 0) {
+      fileEntry.recentLines = linesChanged.slice(0, 10);
+    }
+
+    this.save();
+  }
+
+  // ========== QUERY TRACKING ==========
+
+  onQuery(query: string, filesUsed: string[]): void {
+    this.ensureContext();
+    if (!this.current) return;
+
+    const relativeFiles = filesUsed.map(f => this.toRelativePath(f));
+
+    this.current.queries.unshift({
+      query,
+      timestamp: new Date(),
+      filesUsed: relativeFiles
+    });
+
+    // Trim old queries
+    if (this.current.queries.length > MAX_QUERIES) {
+      this.current.queries = this.current.queries.slice(0, MAX_QUERIES);
+    }
+
+    // Touch files that were used
+    relativeFiles.forEach(f => this.touchFile(f));
+
+    this.current.lastActiveAt = new Date();
+    this.save();
+  }
+
+  // ========== HOT CACHE ==========
+
+  private async preloadFile(filePath: string): Promise<void> {
+    const relativePath = this.toRelativePath(filePath);
+
+    if (this.fileContents.has(relativePath)) return;
+
+    try {
+      const absolutePath = this.toAbsolutePath(relativePath);
+      const content = readFileSync(absolutePath, 'utf-8');
+      this.fileContents.set(relativePath, content);
+
+      // Trim cache if too large
+      if (this.fileContents.size > HOT_CACHE_MAX_FILES && this.current) {
+        // Find least recently touched file and remove it
+        const filesInContext = new Set(this.current.files.map(f => f.path));
+        for (const [path] of this.fileContents) {
+          if (!filesInContext.has(path)) {
+            this.fileContents.delete(path);
+            break;
+          }
+        }
+      }
+    } catch {
+      // File might not exist or be unreadable
+    }
+  }
+
+  getFileContent(filePath: string): string | null {
+    const relativePath = this.toRelativePath(filePath);
+    return this.fileContents.get(relativePath) || null;
+  }
+
+  // ========== CONTEXT RETRIEVAL ==========
+
+  getHotContext(): HotContext {
+    if (!this.current) {
+      return { files: [], changes: [], queries: [], summary: '' };
+    }
+
+    // Rank files by touchCount * recency
+    const now = Date.now();
+    const rankedFiles = this.current.files
+      .map(f => ({
+        ...f,
+        score: f.touchCount * (1 / (now - f.lastTouched.getTime() + 1))
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10);
+
+    return {
+      files: rankedFiles.map(f => ({
+        path: f.path,
+        content: this.fileContents.get(f.path) || null,
+        touchCount: f.touchCount
+      })),
+      changes: this.current.changes.slice(0, 10),
+      queries: this.current.queries.slice(0, 5),
+      summary: this.generateSummary()
+    };
+  }
+
+  private generateSummary(): string {
+    if (!this.current) return '';
+
+    const topFiles = this.current.files
+      .sort((a, b) => b.touchCount - a.touchCount)
+      .slice(0, 5)
+      .map(f => basename(f.path))
+      .join(', ');
+
+    const recentChanges = this.current.changes.length;
+    const durationMs = Date.now() - this.current.startedAt.getTime();
+    const durationMin = Math.round(durationMs / 60000);
+
+    if (topFiles) {
+      return `Working on: ${topFiles} | ${recentChanges} changes | ${durationMin} min`;
+    }
+
+    return `Session active | ${durationMin} min`;
+  }
+
+  getCurrentContext(): ActiveFeatureContext | null {
+    return this.current;
+  }
+
+  getRecentContexts(): ActiveFeatureContext[] {
+    return this.recent;
+  }
+
+  getCurrentSummary(): { name: string; files: number; changes: number; duration: number } | null {
+    if (!this.current) return null;
+
+    return {
+      name: this.current.name,
+      files: this.current.files.length,
+      changes: this.current.changes.length,
+      duration: Math.round((Date.now() - this.current.startedAt.getTime()) / 60000)
+    };
+  }
+
+  // ========== CONTEXT MANAGEMENT ==========
+
+  private ensureContext(): void {
+    if (!this.current || this.current.status !== 'active') {
+      this.startNewContext();
+    }
+  }
+
+  startNewContext(name?: string): ActiveFeatureContext {
+    // Save current context to recent
+    if (this.current) {
+      this.current.status = 'paused';
+      this.recent.unshift(this.current);
+      this.recent = this.recent.slice(0, MAX_RECENT_CONTEXTS);
+    }
+
+    this.current = {
+      id: randomUUID(),
+      name: name || 'Untitled Feature',
+      files: [],
+      changes: [],
+      queries: [],
+      startedAt: new Date(),
+      lastActiveAt: new Date(),
+      status: 'active'
+    };
+
+    // Clear hot cache for new context
+    this.fileContents.clear();
+    this.save();
+
+    this.emit('context-started', this.current);
+    return this.current;
+  }
+
+  setContextName(name: string): boolean {
+    if (!this.current) return false;
+    this.current.name = name;
+    this.save();
+    return true;
+  }
+
+  switchToRecent(contextId: string): boolean {
+    const found = this.recent.find(c => c.id === contextId);
+    if (!found) return false;
+
+    // Save current to recent
+    if (this.current) {
+      this.current.status = 'paused';
+      this.recent.unshift(this.current);
+    }
+
+    // Remove found from recent and make it current
+    this.recent = this.recent.filter(c => c.id !== contextId);
+    this.current = found;
+    this.current.status = 'active';
+    this.current.lastActiveAt = new Date();
+
+    // Reload files into hot cache
+    this.reloadFiles();
+    this.save();
+
+    this.emit('context-switched', this.current);
+    return true;
+  }
+
+  private reloadFiles(): void {
+    this.fileContents.clear();
+    if (!this.current) return;
+
+    // Preload top 10 files
+    const topFiles = this.current.files
+      .sort((a, b) => b.touchCount - a.touchCount)
+      .slice(0, 10);
+
+    for (const file of topFiles) {
+      this.preloadFile(file.path);
+    }
+  }
+
+  completeContext(): boolean {
+    if (!this.current) return false;
+    this.current.status = 'completed';
+    this.recent.unshift(this.current);
+    this.recent = this.recent.slice(0, MAX_RECENT_CONTEXTS);
+    this.current = null;
+    this.fileContents.clear();
+    this.save();
+    return true;
+  }
+
+  // ========== AUTO MANAGEMENT ==========
+
+  private startInactivityTimer(): void {
+    if (this.inactivityTimer) {
+      clearInterval(this.inactivityTimer);
+    }
+
+    this.inactivityTimer = setInterval(() => {
+      if (!this.current) return;
+
+      const inactiveMs = Date.now() - this.current.lastActiveAt.getTime();
+      if (inactiveMs > TTL_MINUTES * 60 * 1000) {
+        this.current.status = 'paused';
+        this.emit('context-paused', this.current);
+        this.save();
+      }
+    }, 60000); // Check every minute
+  }
+
+  // ========== PERSISTENCE ==========
+
+  private save(): void {
+    try {
+      const dir = dirname(this.persistPath);
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+      }
+
+      const data = {
+        current: this.current,
+        recent: this.recent
+      };
+
+      writeFileSync(this.persistPath, JSON.stringify(data, null, 2));
+    } catch (error) {
+      console.error('Error saving feature context:', error);
+    }
+  }
+
+  private load(): void {
+    try {
+      if (existsSync(this.persistPath)) {
+        const data = JSON.parse(readFileSync(this.persistPath, 'utf-8'));
+
+        // Parse dates in current context
+        if (data.current) {
+          this.current = this.parseContext(data.current);
+        }
+
+        // Parse dates in recent contexts
+        if (data.recent) {
+          this.recent = data.recent.map((c: ActiveFeatureContext) => this.parseContext(c));
+        }
+
+        // Reload files if we have a current context
+        if (this.current && this.current.status === 'active') {
+          this.reloadFiles();
+        }
+      }
+    } catch (error) {
+      console.error('Error loading feature context:', error);
+      this.current = null;
+      this.recent = [];
+    }
+  }
+
+  private parseContext(data: ActiveFeatureContext): ActiveFeatureContext {
+    return {
+      ...data,
+      startedAt: new Date(data.startedAt),
+      lastActiveAt: new Date(data.lastActiveAt),
+      files: data.files.map(f => ({
+        ...f,
+        lastTouched: new Date(f.lastTouched)
+      })),
+      changes: data.changes.map(c => ({
+        ...c,
+        timestamp: new Date(c.timestamp)
+      })),
+      queries: data.queries.map(q => ({
+        ...q,
+        timestamp: new Date(q.timestamp)
+      }))
+    };
+  }
+
+  // ========== PATH UTILITIES ==========
+
+  private toRelativePath(filePath: string): string {
+    if (filePath.startsWith(this.projectPath)) {
+      return filePath.slice(this.projectPath.length).replace(/^[\/\\]/, '');
+    }
+    return filePath;
+  }
+
+  private toAbsolutePath(relativePath: string): string {
+    if (relativePath.startsWith(this.projectPath)) {
+      return relativePath;
+    }
+    return join(this.projectPath, relativePath);
+  }
+
+  // ========== CLEANUP ==========
+
+  shutdown(): void {
+    if (this.inactivityTimer) {
+      clearInterval(this.inactivityTimer);
+      this.inactivityTimer = null;
+    }
+    this.save();
+  }
+}

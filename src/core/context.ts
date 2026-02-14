@@ -1,16 +1,18 @@
-import { dirname, relative } from 'path';
+import { dirname, relative, basename } from 'path';
 import { Tier1Storage } from '../storage/tier1.js';
 import { Tier2Storage } from '../storage/tier2.js';
 import { Tier3Storage } from '../storage/tier3.js';
 import { EmbeddingGenerator } from '../indexing/embeddings.js';
 import { TokenBudget, estimateTokens } from '../utils/tokens.js';
-import type { AssembledContext, AssemblyOptions, SearchResult, Decision, ContextParts } from '../types/index.js';
+import type { FeatureContextManager } from './feature-context.js';
+import type { AssembledContext, AssemblyOptions, SearchResult, Decision, ContextParts, HotContext } from '../types/index.js';
 
 export class ContextAssembler {
   private tier1: Tier1Storage;
   private tier2: Tier2Storage;
   private tier3: Tier3Storage;
   private embeddingGenerator: EmbeddingGenerator;
+  private featureContextManager: FeatureContextManager | null = null;
 
   constructor(
     tier1: Tier1Storage,
@@ -24,9 +26,26 @@ export class ContextAssembler {
     this.embeddingGenerator = embeddingGenerator;
   }
 
+  // Set feature context manager (injected after construction to avoid circular deps)
+  setFeatureContextManager(manager: FeatureContextManager): void {
+    this.featureContextManager = manager;
+  }
+
   async assemble(query: string, options: AssemblyOptions = {}): Promise<AssembledContext> {
     const budget = new TokenBudget(options.maxTokens || 6000);
     const queryEmbedding = await this.embeddingGenerator.embed(query);
+
+    // Step 0: HOT CONTEXT (HIGHEST PRIORITY) - Active Feature Context
+    let hotContext: HotContext | null = null;
+    if (this.featureContextManager) {
+      hotContext = this.featureContextManager.getHotContext();
+      if (hotContext.files.length > 0 || hotContext.changes.length > 0) {
+        const hotText = this.formatHotContext(hotContext);
+        if (budget.canFit(hotText)) {
+          budget.allocate(hotText, 'hot-context');
+        }
+      }
+    }
 
     // Step 1: Load and format Tier 1 (working context)
     const working = this.tier1.getContext();
@@ -82,7 +101,7 @@ export class ContextAssembler {
       relevant: tier2Content,
       archive: tier3Content,
       decisions
-    });
+    }, hotContext);
 
     return {
       context,
@@ -90,6 +109,41 @@ export class ContextAssembler {
       tokenCount: budget.used(),
       decisions
     };
+  }
+
+  private formatHotContext(hot: HotContext): string {
+    let output = `## Active Feature Context\n\n`;
+
+    if (hot.summary) {
+      output += `**${hot.summary}**\n\n`;
+    }
+
+    if (hot.files.length > 0) {
+      output += `### Files You're Working On\n`;
+      for (const f of hot.files.slice(0, 8)) {
+        output += `- \`${f.path}\` (touched ${f.touchCount}x)\n`;
+      }
+      output += `\n`;
+    }
+
+    if (hot.changes.length > 0) {
+      output += `### Recent Changes\n`;
+      for (const c of hot.changes.slice(0, 5)) {
+        const fileName = basename(c.file);
+        output += `- \`${fileName}\`: ${c.diff}\n`;
+      }
+      output += `\n`;
+    }
+
+    if (hot.queries.length > 0) {
+      output += `### Recent Questions\n`;
+      for (const q of hot.queries.slice(0, 3)) {
+        output += `- "${q.query}"\n`;
+      }
+      output += `\n`;
+    }
+
+    return output;
   }
 
   private formatTier1(context: { activeFile: { path: string; content: string; language: string } | null }): string {
@@ -154,8 +208,13 @@ ${result.preview}
       .sort((a, b) => (b.score || 0) - (a.score || 0));
   }
 
-  private formatFinalContext(parts: ContextParts): string {
+  private formatFinalContext(parts: ContextParts, hotContext?: HotContext | null): string {
     const sections: string[] = [];
+
+    // Hot context first (highest priority)
+    if (hotContext && (hotContext.files.length > 0 || hotContext.changes.length > 0)) {
+      sections.push(this.formatHotContext(hotContext));
+    }
 
     sections.push('## Codebase Context\n');
 

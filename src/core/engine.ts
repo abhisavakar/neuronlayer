@@ -12,8 +12,11 @@ import { LearningEngine } from './learning.js';
 import { FileSummarizer } from './summarizer.js';
 import { ProjectManager, type ProjectInfo } from './project-manager.js';
 import { ADRExporter, type ADRExportOptions } from './adr-exporter.js';
+import { FeatureContextManager } from './feature-context.js';
+import { LivingDocumentationEngine } from './living-docs/index.js';
 import { detectLanguage, getPreview, countLines } from '../utils/files.js';
-import type { MemoryLayerConfig, AssembledContext, Decision, ProjectSummary, SearchResult, CodeSymbol, SymbolKind } from '../types/index.js';
+import type { MemoryLayerConfig, AssembledContext, Decision, ProjectSummary, SearchResult, CodeSymbol, SymbolKind, ActiveFeatureContext, HotContext } from '../types/index.js';
+import type { ArchitectureDoc, ComponentDoc, DailyChangelog, ChangelogOptions, ValidationResult, ActivityResult, UndocumentedItem } from '../types/documentation.js';
 import type Database from 'better-sqlite3';
 
 export class MemoryLayerEngine {
@@ -29,6 +32,8 @@ export class MemoryLayerEngine {
   private summarizer: FileSummarizer;
   private projectManager: ProjectManager;
   private adrExporter: ADRExporter;
+  private featureContextManager: FeatureContextManager;
+  private livingDocs: LivingDocumentationEngine;
   private initialized = false;
 
   constructor(config: MemoryLayerConfig) {
@@ -74,6 +79,20 @@ export class MemoryLayerEngine {
     this.projectManager = new ProjectManager();
     this.adrExporter = new ADRExporter(config.projectPath);
 
+    // Phase 5: Initialize feature context manager
+    this.featureContextManager = new FeatureContextManager(config.projectPath, config.dataDir);
+
+    // Wire up feature context manager to context assembler
+    this.contextAssembler.setFeatureContextManager(this.featureContextManager);
+
+    // Phase 6: Initialize living documentation engine
+    this.livingDocs = new LivingDocumentationEngine(
+      config.projectPath,
+      config.dataDir,
+      this.db,
+      this.tier2
+    );
+
     // Register this project
     const projectInfo = this.projectManager.registerProject(config.projectPath);
     this.projectManager.setActiveProject(projectInfo.id);
@@ -101,7 +120,8 @@ export class MemoryLayerEngine {
     });
 
     this.indexer.on('fileIndexed', (path) => {
-      // Silent for now, could emit events for UI
+      // Track file in feature context
+      this.featureContextManager.onFileOpened(path);
     });
 
     this.indexer.on('error', (error) => {
@@ -143,6 +163,9 @@ export class MemoryLayerEngine {
 
     // Track query pattern for future predictions
     this.learningEngine.trackQuery(query, result.sources);
+
+    // Track in feature context
+    this.featureContextManager.onQuery(query, result.sources);
 
     return result;
   }
@@ -192,6 +215,9 @@ export class MemoryLayerEngine {
 
       // Track file view
       this.learningEngine.trackEvent({ eventType: 'file_view', filePath });
+
+      // Track in feature context
+      this.featureContextManager.onFileOpened(filePath);
 
       // Update Tier 1 with this as the active file
       this.tier1.setActiveFile({
@@ -678,10 +704,108 @@ export class MemoryLayerEngine {
     }
   }
 
+  // ========== Phase 5: Active Feature Context ==========
+
+  // Get the hot context for current feature
+  getHotContext(): HotContext {
+    return this.featureContextManager.getHotContext();
+  }
+
+  // Get current active feature context
+  getActiveFeatureContext(): ActiveFeatureContext | null {
+    return this.featureContextManager.getCurrentContext();
+  }
+
+  // Get summary of current feature context
+  getActiveContextSummary(): { name: string; files: number; changes: number; duration: number } | null {
+    return this.featureContextManager.getCurrentSummary();
+  }
+
+  // Start a new feature context
+  startFeatureContext(name?: string): ActiveFeatureContext {
+    return this.featureContextManager.startNewContext(name);
+  }
+
+  // Set feature context name
+  setFeatureContextName(name: string): boolean {
+    return this.featureContextManager.setContextName(name);
+  }
+
+  // Get recent feature contexts
+  getRecentFeatureContexts(): ActiveFeatureContext[] {
+    return this.featureContextManager.getRecentContexts();
+  }
+
+  // Switch to a previous feature context
+  switchFeatureContext(contextId: string): boolean {
+    return this.featureContextManager.switchToRecent(contextId);
+  }
+
+  // Complete current feature context
+  completeFeatureContext(): boolean {
+    return this.featureContextManager.completeContext();
+  }
+
+  // Track a file being opened (for external triggers)
+  trackFileOpened(filePath: string): void {
+    this.featureContextManager.onFileOpened(filePath);
+  }
+
+  // Track a file being edited
+  trackFileEdited(filePath: string, diff: string, linesChanged?: number[]): void {
+    this.featureContextManager.onFileEdited(filePath, diff, linesChanged || []);
+  }
+
+  // Track a query with files used
+  trackQuery(query: string, filesUsed: string[]): void {
+    this.featureContextManager.onQuery(query, filesUsed);
+  }
+
+  // Get feature context manager for direct access
+  getFeatureContextManager(): FeatureContextManager {
+    return this.featureContextManager;
+  }
+
+  // ========== Phase 6: Living Documentation ==========
+
+  // Get project architecture overview
+  async getArchitecture(): Promise<ArchitectureDoc> {
+    return this.livingDocs.generateArchitectureDocs();
+  }
+
+  // Get detailed documentation for a component/file
+  async getComponentDoc(path: string): Promise<ComponentDoc> {
+    return this.livingDocs.generateComponentDoc(path);
+  }
+
+  // Get changelog of recent changes
+  async getChangelog(options?: ChangelogOptions): Promise<DailyChangelog[]> {
+    return this.livingDocs.generateChangelog(options || {});
+  }
+
+  // Validate documentation status
+  async validateDocs(): Promise<ValidationResult> {
+    return this.livingDocs.validateDocs();
+  }
+
+  // Query recent project activity
+  async whatHappened(since: string, scope?: string): Promise<ActivityResult> {
+    return this.livingDocs.whatHappened(since, scope);
+  }
+
+  // Find undocumented code
+  async findUndocumented(options?: {
+    importance?: 'low' | 'medium' | 'high' | 'all';
+    type?: 'file' | 'function' | 'class' | 'interface' | 'all';
+  }): Promise<UndocumentedItem[]> {
+    return this.livingDocs.findUndocumented(options);
+  }
+
   shutdown(): void {
     console.error('Shutting down MemoryLayer...');
     this.indexer.stopWatching();
     this.tier1.save();
+    this.featureContextManager.shutdown();
     closeDatabase(this.db);
   }
 }

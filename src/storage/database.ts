@@ -173,6 +173,30 @@ export function initializeDatabase(dbPath: string): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_usage_events_file ON usage_events(file_path);
     CREATE INDEX IF NOT EXISTS idx_file_access_count ON file_access(access_count DESC);
     CREATE INDEX IF NOT EXISTS idx_query_patterns_hash ON query_patterns(query_hash);
+
+    -- Phase 6: Living Documentation tables
+    CREATE TABLE IF NOT EXISTS documentation (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      file_id INTEGER REFERENCES files(id) ON DELETE CASCADE,
+      doc_type TEXT NOT NULL,
+      content TEXT NOT NULL,
+      generated_at INTEGER DEFAULT (unixepoch()),
+      UNIQUE(file_id, doc_type)
+    );
+
+    CREATE TABLE IF NOT EXISTS activity_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      timestamp INTEGER DEFAULT (unixepoch()),
+      activity_type TEXT NOT NULL,
+      description TEXT,
+      file_path TEXT,
+      metadata TEXT,
+      commit_hash TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_activity_timestamp ON activity_log(timestamp);
+    CREATE INDEX IF NOT EXISTS idx_activity_type ON activity_log(activity_type);
+    CREATE INDEX IF NOT EXISTS idx_documentation_file ON documentation(file_id);
   `);
 
   return db;

@@ -326,6 +326,164 @@ export const toolDefinitions: ToolDefinition[] = [
       type: 'object',
       properties: {}
     }
+  },
+  // Phase 5: Active Feature Context tools
+  {
+    name: 'get_active_context',
+    description: 'Get the current feature context including files being worked on, recent changes, and recent questions. Use this to understand what the user is currently working on.',
+    inputSchema: {
+      type: 'object',
+      properties: {}
+    }
+  },
+  {
+    name: 'set_feature_context',
+    description: 'Start tracking a new feature. Tell MemoryLayer what you are working on for better context.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+          description: 'Name of the feature (e.g., "payment integration", "auth refactor")'
+        },
+        files: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Initial files to track (optional)'
+        }
+      },
+      required: ['name']
+    }
+  },
+  {
+    name: 'list_recent_contexts',
+    description: 'List recently worked on features/contexts that can be switched back to.',
+    inputSchema: {
+      type: 'object',
+      properties: {}
+    }
+  },
+  {
+    name: 'switch_feature_context',
+    description: 'Switch back to a previously worked on feature context.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        context_id: {
+          type: 'string',
+          description: 'ID of the context to switch to (from list_recent_contexts)'
+        }
+      },
+      required: ['context_id']
+    }
+  },
+  // Phase 6: Living Documentation tools
+  {
+    name: 'generate_docs',
+    description: 'Generate documentation for a file or the entire architecture.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: {
+          type: 'string',
+          description: 'Path to document (omit for architecture overview)'
+        },
+        type: {
+          type: 'string',
+          enum: ['component', 'architecture'],
+          description: 'Type of documentation to generate'
+        }
+      }
+    }
+  },
+  {
+    name: 'get_architecture',
+    description: 'Get project architecture overview with layers, data flow, and ASCII diagram.',
+    inputSchema: {
+      type: 'object',
+      properties: {}
+    }
+  },
+  {
+    name: 'get_component_doc',
+    description: 'Get detailed documentation for a component/file including public interface, dependencies, and change history.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: {
+          type: 'string',
+          description: 'Relative path to the file'
+        }
+      },
+      required: ['path']
+    }
+  },
+  {
+    name: 'get_changelog',
+    description: 'Get changelog of recent changes grouped by day.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        since: {
+          type: 'string',
+          description: 'Time period: "yesterday", "today", "this week", "this month", or a date'
+        },
+        group_by: {
+          type: 'string',
+          enum: ['day', 'week'],
+          description: 'How to group changes (default: day)'
+        },
+        include_decisions: {
+          type: 'boolean',
+          description: 'Include decisions made during this period (default: false)'
+        }
+      }
+    }
+  },
+  {
+    name: 'validate_docs',
+    description: 'Check for outdated documentation and calculate documentation score.',
+    inputSchema: {
+      type: 'object',
+      properties: {}
+    }
+  },
+  {
+    name: 'what_happened',
+    description: 'Query recent project activity - commits, file changes, and decisions.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        since: {
+          type: 'string',
+          description: 'Time period: "yesterday", "today", "this week", "this month", or a date'
+        },
+        scope: {
+          type: 'string',
+          description: 'Limit to a specific directory or file path (optional)'
+        }
+      },
+      required: ['since']
+    }
+  },
+  {
+    name: 'find_undocumented',
+    description: 'Find code that lacks documentation - exported functions, classes, and interfaces without docstrings.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        importance: {
+          type: 'string',
+          enum: ['low', 'medium', 'high', 'all'],
+          description: 'Filter by importance level (default: all)'
+        },
+        type: {
+          type: 'string',
+          enum: ['file', 'function', 'class', 'interface', 'all'],
+          description: 'Filter by symbol type (default: all)'
+        }
+      }
+    }
   }
 ];
 
@@ -679,6 +837,350 @@ export async function handleToolCall(
           path: p,
           name: p.split(/[/\\]/).pop()
         }))
+      };
+    }
+
+    // Phase 5: Active Feature Context tools
+    case 'get_active_context': {
+      const hotContext = engine.getHotContext();
+      const summary = engine.getActiveContextSummary();
+
+      return {
+        summary: hotContext.summary || 'No active context',
+        current_feature: summary ? {
+          name: summary.name,
+          files_count: summary.files,
+          changes_count: summary.changes,
+          duration_minutes: summary.duration
+        } : null,
+        active_files: hotContext.files.map(f => ({
+          path: f.path,
+          touch_count: f.touchCount,
+          has_content: f.content !== null
+        })),
+        recent_changes: hotContext.changes.slice(0, 5).map(c => ({
+          file: c.file,
+          diff: c.diff,
+          when: c.timestamp.toISOString()
+        })),
+        recent_queries: hotContext.queries.map(q => ({
+          query: q.query,
+          files_used: q.filesUsed,
+          when: q.timestamp.toISOString()
+        }))
+      };
+    }
+
+    case 'set_feature_context': {
+      const name = args.name as string;
+      const files = args.files as string[] | undefined;
+
+      const context = engine.startFeatureContext(name);
+
+      // Track initial files if provided
+      if (files && files.length > 0) {
+        for (const file of files) {
+          engine.trackFileOpened(file);
+        }
+      }
+
+      return {
+        success: true,
+        message: `Now tracking: ${name}`,
+        context_id: context.id,
+        name: context.name
+      };
+    }
+
+    case 'list_recent_contexts': {
+      const current = engine.getActiveContextSummary();
+      const recent = engine.getRecentFeatureContexts();
+
+      return {
+        current: current ? {
+          name: current.name,
+          files: current.files,
+          changes: current.changes,
+          duration_minutes: current.duration
+        } : null,
+        recent: recent.map(c => ({
+          id: c.id,
+          name: c.name,
+          files_count: c.files.length,
+          changes_count: c.changes.length,
+          status: c.status,
+          last_active: c.lastActiveAt.toISOString()
+        }))
+      };
+    }
+
+    case 'switch_feature_context': {
+      const contextId = args.context_id as string;
+      const success = engine.switchFeatureContext(contextId);
+
+      if (!success) {
+        return {
+          success: false,
+          error: `Context not found: ${contextId}`,
+          message: 'Use list_recent_contexts to see available contexts'
+        };
+      }
+
+      const summary = engine.getActiveContextSummary();
+      return {
+        success: true,
+        message: `Switched to: ${summary?.name || 'Unknown'}`,
+        current: summary ? {
+          name: summary.name,
+          files: summary.files,
+          changes: summary.changes
+        } : null
+      };
+    }
+
+    // Phase 6: Living Documentation tools
+    case 'generate_docs': {
+      const path = args.path as string | undefined;
+      const type = (args.type as string) || (path ? 'component' : 'architecture');
+
+      if (type === 'architecture' || !path) {
+        const arch = await engine.getArchitecture();
+        return {
+          type: 'architecture',
+          name: arch.name,
+          description: arch.description,
+          diagram: arch.diagram,
+          layers: arch.layers.map(l => ({
+            name: l.name,
+            directory: l.directory,
+            files_count: l.files.length,
+            purpose: l.purpose
+          })),
+          data_flow: arch.dataFlow,
+          dependencies_count: arch.dependencies.length,
+          generated_at: arch.generatedAt.toISOString()
+        };
+      } else {
+        const doc = await engine.getComponentDoc(path);
+        return {
+          type: 'component',
+          file: doc.file,
+          name: doc.name,
+          purpose: doc.purpose,
+          public_interface: doc.publicInterface.map(s => ({
+            name: s.name,
+            kind: s.kind,
+            signature: s.signature,
+            line: s.lineStart
+          })),
+          dependencies_count: doc.dependencies.length,
+          dependents_count: doc.dependents.length,
+          complexity: doc.complexity,
+          documentation_score: doc.documentationScore
+        };
+      }
+    }
+
+    case 'get_architecture': {
+      const arch = await engine.getArchitecture();
+
+      return {
+        name: arch.name,
+        description: arch.description,
+        diagram: arch.diagram,
+        layers: arch.layers.map(l => ({
+          name: l.name,
+          directory: l.directory,
+          files: l.files,
+          purpose: l.purpose
+        })),
+        data_flow: arch.dataFlow,
+        key_components: arch.keyComponents.map(c => ({
+          name: c.name,
+          file: c.file,
+          purpose: c.purpose,
+          exports: c.exports
+        })),
+        dependencies: arch.dependencies.map(d => ({
+          name: d.name,
+          version: d.version,
+          type: d.type
+        })),
+        generated_at: arch.generatedAt.toISOString()
+      };
+    }
+
+    case 'get_component_doc': {
+      const path = args.path as string;
+
+      try {
+        const doc = await engine.getComponentDoc(path);
+
+        return {
+          file: doc.file,
+          name: doc.name,
+          purpose: doc.purpose,
+          last_modified: doc.lastModified.toISOString(),
+          public_interface: doc.publicInterface.map(s => ({
+            name: s.name,
+            kind: s.kind,
+            signature: s.signature,
+            description: s.description,
+            line_start: s.lineStart,
+            line_end: s.lineEnd,
+            exported: s.exported
+          })),
+          dependencies: doc.dependencies,
+          dependents: doc.dependents,
+          change_history: doc.changeHistory.slice(0, 10).map(h => ({
+            date: h.date.toISOString(),
+            change: h.change,
+            author: h.author,
+            commit: h.commit,
+            lines_added: h.linesChanged.added,
+            lines_removed: h.linesChanged.removed
+          })),
+          contributors: doc.contributors,
+          complexity: doc.complexity,
+          documentation_score: doc.documentationScore
+        };
+      } catch (error) {
+        return {
+          error: `Failed to generate component doc: ${error instanceof Error ? error.message : 'Unknown error'}`
+        };
+      }
+    }
+
+    case 'get_changelog': {
+      const since = args.since as string | undefined;
+      const groupBy = args.group_by as 'day' | 'week' | undefined;
+      const includeDecisions = args.include_decisions as boolean | undefined;
+
+      const changelogs = await engine.getChangelog({
+        since,
+        groupBy,
+        includeDecisions
+      });
+
+      return {
+        period: since || 'this week',
+        days: changelogs.map(day => ({
+          date: day.date.toISOString().split('T')[0],
+          summary: day.summary,
+          features: day.features.map(f => ({
+            description: f.description,
+            files: f.files,
+            commit: f.commit
+          })),
+          fixes: day.fixes.map(f => ({
+            description: f.description,
+            files: f.files,
+            commit: f.commit
+          })),
+          refactors: day.refactors.map(r => ({
+            description: r.description,
+            files: r.files,
+            commit: r.commit
+          })),
+          decisions: day.decisions,
+          metrics: {
+            commits: day.metrics.commits,
+            files_changed: day.metrics.filesChanged,
+            lines_added: day.metrics.linesAdded,
+            lines_removed: day.metrics.linesRemoved
+          }
+        })),
+        total_days: changelogs.length
+      };
+    }
+
+    case 'validate_docs': {
+      const result = await engine.validateDocs();
+
+      return {
+        is_valid: result.isValid,
+        score: result.score,
+        outdated_docs: result.outdatedDocs.map(d => ({
+          file: d.file,
+          reason: d.reason,
+          severity: d.severity,
+          last_doc_update: d.lastDocUpdate.toISOString(),
+          last_code_change: d.lastCodeChange.toISOString()
+        })),
+        undocumented_count: result.undocumentedCode.length,
+        suggestions: result.suggestions.slice(0, 10).map(s => ({
+          file: s.file,
+          suggestion: s.suggestion,
+          priority: s.priority
+        })),
+        message: result.isValid
+          ? `Documentation score: ${result.score}% - Looking good!`
+          : `Documentation score: ${result.score}% - ${result.suggestions.length} suggestions available`
+      };
+    }
+
+    case 'what_happened': {
+      const since = args.since as string;
+      const scope = args.scope as string | undefined;
+
+      const result = await engine.whatHappened(since, scope);
+
+      return {
+        time_range: {
+          since: result.timeRange.since.toISOString(),
+          until: result.timeRange.until.toISOString()
+        },
+        scope: result.scope,
+        summary: result.summary,
+        changes: result.changes.slice(0, 20).map(c => ({
+          timestamp: c.timestamp.toISOString(),
+          type: c.type,
+          description: c.description,
+          details: c.details
+        })),
+        decisions: result.decisions.map(d => ({
+          id: d.id,
+          title: d.title,
+          date: d.date.toISOString()
+        })),
+        files_affected: result.filesAffected.slice(0, 20),
+        total_changes: result.changes.length,
+        total_files: result.filesAffected.length
+      };
+    }
+
+    case 'find_undocumented': {
+      const importance = args.importance as 'low' | 'medium' | 'high' | 'all' | undefined;
+      const type = args.type as 'file' | 'function' | 'class' | 'interface' | 'all' | undefined;
+
+      const items = await engine.findUndocumented({ importance, type });
+
+      // Group by file for better readability
+      const byFile = new Map<string, typeof items>();
+      for (const item of items) {
+        if (!byFile.has(item.file)) {
+          byFile.set(item.file, []);
+        }
+        byFile.get(item.file)!.push(item);
+      }
+
+      return {
+        total: items.length,
+        by_importance: {
+          high: items.filter(i => i.importance === 'high').length,
+          medium: items.filter(i => i.importance === 'medium').length,
+          low: items.filter(i => i.importance === 'low').length
+        },
+        items: items.slice(0, 30).map(i => ({
+          file: i.file,
+          symbol: i.symbol,
+          type: i.type,
+          importance: i.importance
+        })),
+        files_affected: byFile.size,
+        message: items.length === 0
+          ? 'All exported code is documented!'
+          : `Found ${items.length} undocumented items across ${byFile.size} files`
       };
     }
 
