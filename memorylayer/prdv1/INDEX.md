@@ -8,6 +8,42 @@
 
 ---
 
+## The Vision
+
+> **"MemoryLayer: Your codebase documents itself. AI that never forgets."**
+
+---
+
+## Market Research: Why We Need Killer Features
+
+### Top Vibe Coder Problems (2026)
+
+| Problem | Stat | Source |
+|---------|------|--------|
+| **Productivity paradox** | 19% SLOWER with AI | Augment Code |
+| **Almost right solutions** | 66% frustrated | Index.dev |
+| **Trust issues** | Only 29% trust AI code | Stack Overflow |
+| **Debugging AI code** | 45% MORE time | Faros AI |
+| **Context collapse** | 70K usable of 200K | LogRocket |
+| **Technical debt** | 1.64x higher errors | Stack Overflow |
+| **Code duplication** | 4x more cloning | MIT Tech Review |
+| **Security vulnerabilities** | 1.7x more issues | Hackaday |
+
+### What is Context Rot?
+
+LLMs degrade as context grows:
+- Accuracy drops from 70% → 55% with just 20 docs
+- Earlier instructions get deprioritized ("drift")
+- Multi-file understanding breaks down
+- Information in the middle gets "lost"
+
+**Root causes:**
+1. Lost-in-the-middle attention problem
+2. Positional encoding limitations
+3. Attention mechanism degradation
+
+---
+
 ## Overview
 
 This folder contains specifications for the next major features that will differentiate MemoryLayer from competitors.
@@ -18,112 +54,176 @@ This folder contains specifications for the next major features that will differ
 
 | Document | Description | Status | Priority |
 |----------|-------------|--------|----------|
+| [LIVING-DOCUMENTATION.md](./LIVING-DOCUMENTATION.md) | Auto-documentation engine | Planned | **P0** |
 | [ACTIVE-FEATURE-CONTEXT.md](./ACTIVE-FEATURE-CONTEXT.md) | Hot context caching for current work | Planned | P0 |
+| [CONTEXT-ROT-PREVENTION.md](./CONTEXT-ROT-PREVENTION.md) | Smart context compaction | Planned | P0 |
+| [CONFIDENCE-SCORING.md](./CONFIDENCE-SCORING.md) | Trust indicators for AI suggestions | Planned | P1 |
+| [CHANGE-INTELLIGENCE.md](./CHANGE-INTELLIGENCE.md) | What changed & why it broke | Planned | P1 |
+| [ARCHITECTURE-ENFORCEMENT.md](./ARCHITECTURE-ENFORCEMENT.md) | Pattern library & enforcement | Planned | P2 |
+| [TEST-AWARENESS.md](./TEST-AWARENESS.md) | Test-respecting suggestions | Planned | P2 |
 
 ---
 
-## Killer Feature: Active Feature Context
+## Killer Feature Summary
 
-### The Problem (2026 Reality)
+### Feature 1: Living Documentation (THE KILLER)
 
-From market research, the #1 complaint with AI coding tools:
+**Problem:** After few days, neither AI nor humans know what happened. Documentation is shitty.
 
-> **"AI forgets context mid-session"**
-> **"AI keeps asking what I'm working on"**
-> **"I have to re-explain everything"**
+**Solution:** Auto-documentation engine that:
+- Generates architecture docs automatically
+- Creates component documentation
+- Logs all decisions with context
+- Produces daily changelogs
+- Keeps docs in sync with code
 
-### Our Solution
+**Impact:** Industry-changing documentation standard
+**Effort:** 2 weeks
 
-Keep the current feature you're working on "hot" in memory:
+---
 
+### Feature 2: Active Feature Context
+
+**Problem:** AI doesn't know what you're currently working on
+
+**Solution:** Hot-cache current work for instant context
 ```
 User opens files → Cached instantly
-User makes changes → Recorded
 User asks question → Hot context injected FIRST
 AI responds → Instant (no searching)
 ```
 
-### Why This Is Killer
-
-| Competitor | Has This? |
-|------------|-----------|
-| OpenClaw | ❌ No |
-| Claude Context | ❌ No |
-| Mem0 | ❌ No |
-| MCP Memory Service | ❌ No |
-| **MemoryLayer** | ✅ Yes |
+**Impact:** 10x faster responses
+**Effort:** 2 days
 
 ---
 
-## Implementation Summary
+### Feature 3: Context Rot Prevention
 
-### New Components
+**Problem:** AI accuracy degrades as conversation grows
 
-| Component | Purpose |
-|-----------|---------|
-| FeatureContextManager | Tracks current work |
-| Hot Cache | Keeps files in memory |
-| Change Tracker | Records edits |
-| Query Tracker | Remembers questions |
+**Solution:** Smart context compaction with:
+- Real-time context health monitoring
+- Drift detection
+- Auto-summarization
+- Critical context preservation
 
-### New MCP Tools
-
-| Tool | Purpose |
-|------|---------|
-| `get_active_context` | Get current feature context |
-| `set_feature_context` | Set what you're working on |
-| `list_recent_contexts` | Show recent features |
-| `switch_feature_context` | Switch to previous work |
-
-### Performance Targets
-
-| Operation | Target |
-|-----------|--------|
-| Hot context retrieval | <5ms |
-| Full response | <100ms |
-| File cache hit rate | >80% |
+**Impact:** Prevent #1 complaint - AI forgetting context
+**Effort:** 1 week
 
 ---
 
-## Timeline
+### Feature 4: Confidence Scoring
 
-| Phase | Duration | Deliverable |
-|-------|----------|-------------|
-| Implementation | 2 days | Working feature |
-| Testing | 1 day | Bug fixes |
-| Documentation | 0.5 day | User guide |
-| Launch | - | Release |
+**Problem:** 66% frustrated with "almost right" solutions
 
-**Total: ~3.5 days**
+**Solution:** Confidence indicators showing:
+- Whether AI is confident or guessing
+- Sources used for each suggestion
+- Conflicts with past decisions
+- Pattern matches in codebase
+
+**Impact:** Build trust with users
+**Effort:** 1 week
+
+---
+
+### Feature 5: Change Intelligence
+
+**Problem:** Debugging takes 45% more time
+
+**Solution:** Answer "what changed?" and "why did it break?" with:
+- Git change tracking
+- Error correlation
+- Past bug matching
+- Fix suggestions
+
+**Impact:** Reduce debugging time significantly
+**Effort:** 1 week
+
+---
+
+### Feature 6: Architecture Enforcement
+
+**Problem:** 4x more code duplication with AI tools
+
+**Solution:** Pattern library with:
+- Learn patterns from codebase
+- Validate generated code
+- Suggest existing functions
+- Enforce consistency
+
+**Impact:** Reduce code duplication
+**Effort:** 2 weeks
+
+---
+
+### Feature 7: Test-Aware Suggestions
+
+**Problem:** AI refactoring only works 37% of the time
+
+**Solution:** Test-respecting code generation:
+- Index test files
+- Identify related tests
+- Warn about breaking changes
+- Suggest test updates
+
+**Impact:** Suggestions that actually work
+**Effort:** 2 weeks
+
+---
+
+## Competitive Differentiation
+
+| Feature | OpenClaw | Mem0 | Claude Context | MemoryLayer |
+|---------|----------|------|----------------|-------------|
+| Persistent memory | ✅ | ✅ | ✅ | ✅ |
+| **Living documentation** | ❌ | ❌ | ❌ | ✅ |
+| **Context rot prevention** | ❌ | ❌ | ❌ | ✅ |
+| **Confidence scoring** | ❌ | ❌ | ❌ | ✅ |
+| **What changed/broke** | ❌ | ❌ | ❌ | ✅ |
+| **Architecture enforcement** | ❌ | ❌ | ❌ | ✅ |
+| **Test-aware suggestions** | ❌ | ❌ | ❌ | ✅ |
+
+---
+
+## Implementation Roadmap
+
+| Phase | Duration | Features |
+|-------|----------|----------|
+| Week 1-2 | Foundation | Living Docs, Active Context |
+| Week 3-4 | Context | Rot Prevention, Health Monitoring |
+| Week 5-6 | Trust | Confidence Scoring, Source Tracking |
+| Week 7-8 | Debugging | Change Intelligence, Bug Correlation |
+| Week 9-12 | Quality | Architecture Enforcement, Test Awareness |
+
+**Total: 10-14 weeks**
 
 ---
 
 ## Success Criteria
 
-| Metric | Target |
-|--------|--------|
-| Response speed improvement | 10x |
-| User feedback | "It just knows what I'm doing" |
-| Competitive differentiation | Unique feature |
+| Metric | Current | Target |
+|--------|---------|--------|
+| Documentation freshness | Outdated | Always current |
+| Context drift complaints | Common | Rare |
+| User trust | Low | High |
+| Debugging time | Long | Short |
+| Code quality | Variable | Consistent |
+| Response speed | Slow | <100ms |
 
 ---
 
-## Business Impact
+## The Killer Pitch
 
-| Impact | Description |
-|--------|-------------|
-| Differentiation | Only tool with this feature |
-| Marketing | Clear, simple value prop |
-| Retention | Users stay because it "just works" |
+> **"MemoryLayer: Your codebase documents itself."**
+>
+> - Ask "What did we do yesterday?" → Get instant answer
+> - Never write documentation again → It writes itself
+> - Never forget why you made a decision → It's logged
+> - AI always knows your project → It reads the living docs
 
----
-
-## Next Steps
-
-1. ✅ Technical specification complete
-2. ⏳ Implementation (2 days)
-3. ⏳ Testing
-4. ⏳ Launch
+**This creates lock-in.** Once users have auto-generated docs, they can't leave.
 
 ---
 
