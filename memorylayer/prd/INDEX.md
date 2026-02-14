@@ -22,6 +22,7 @@ This folder contains the complete product documentation for MemoryLayer v1.0.
 | [RESULTS.md](./RESULTS.md) | Quality comparison results | Everyone |
 | [COMPETITORS.md](./COMPETITORS.md) | Competitor analysis & market positioning | Product, Business |
 | [STRATEGY.md](./STRATEGY.md) | MCP-first business strategy & monetization | Founder, Business |
+| [DEFENSIBILITY.md](./DEFENSIBILITY.md) | Honest assessment of moats & competition | Founder, Business |
 | [PRD.md](./PRD.md) | Full product requirements | Product, Engineering |
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Technical architecture | Engineering |
 | [API.md](./API.md) | MCP tools & resources reference | Engineering, AI developers |
