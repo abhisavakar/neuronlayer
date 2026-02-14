@@ -54,6 +54,7 @@ This folder contains specifications for the next major features that will differ
 
 | Document | Description | Status | Priority |
 |----------|-------------|--------|----------|
+| [BUSINESS-PLAN.md](./BUSINESS-PLAN.md) | Business plan & revenue model | Active | - |
 | [LIVING-DOCUMENTATION.md](./LIVING-DOCUMENTATION.md) | Auto-documentation engine | Planned | **P0** |
 | [ACTIVE-FEATURE-CONTEXT.md](./ACTIVE-FEATURE-CONTEXT.md) | Hot context caching for current work | Planned | P0 |
 | [CONTEXT-ROT-PREVENTION.md](./CONTEXT-ROT-PREVENTION.md) | Smart context compaction | Planned | P0 |
