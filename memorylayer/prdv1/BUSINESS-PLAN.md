@@ -15,7 +15,7 @@
 | **Model** | Open core, credit-based |
 | **Funding** | Bootstrapped |
 | **Team** | Solo founder |
-| **Launch** | Ready now |
+| **Launch** | Build over weekend and Ready to launch  |
 
 **One-liner:**
 > "MemoryLayer: Privacy-first AI memory that makes coding assistants actually understand your codebase."
