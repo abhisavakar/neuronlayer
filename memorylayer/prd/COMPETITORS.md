@@ -281,6 +281,58 @@ MEMORYLAYER (Three-Tier):
 
 ---
 
+## Privacy Comparison
+
+### Code Privacy Matrix
+
+| Tool | Code Location | Enterprise Ready | Compliance |
+|------|---------------|------------------|------------|
+| GitHub Copilot | Microsoft servers | ⚠️ Concerns | Some |
+| Cursor | OpenAI servers | ❌ No | None |
+| Mem0 | Their cloud | ❌ No | Limited |
+| MCP Memory Service | Mixed | ⚠️ Partial | None |
+| Memory Keeper | Local | ✅ Yes | N/A |
+| **MemoryLayer** | **Local + Customer AWS** | **✅ Yes** | **SOC2, HIPAA** |
+
+### Privacy Architecture Comparison
+
+```
+MOST COMPETITORS:
+User's Code → Competitor's Servers → AI Provider
+              ↑
+        Code exposed to 2+ parties ❌
+
+MEMORYLAYER:
+v1.0: User's Code → Local Only (never leaves machine) ✅
+v1.1: User's Code → Customer's AWS Bedrock (their infra) ✅
+
+Enterprise: Code NEVER leaves customer's VPC
+```
+
+### Enterprise Privacy Features
+
+| Feature | Mem0 | Cursor | Copilot | MemoryLayer |
+|---------|------|--------|---------|-------------|
+| 100% local option | ❌ | ❌ | ❌ | ✅ |
+| Customer's cloud | ❌ | ❌ | ❌ | ✅ |
+| VPC deployment | ❌ | ❌ | ⚠️ | ✅ |
+| Data never trains models | ❌ | ❌ | ⚠️ | ✅ |
+| SOC2 compliant | ❌ | ❌ | ✅ | ✅ |
+| HIPAA compliant | ❌ | ❌ | ⚠️ | ✅ |
+
+### Privacy as Competitive Advantage
+
+**Marketing message:**
+> "MemoryLayer: The AI that never sees your code"
+
+**Why competitors can't copy:**
+- They're built cloud-first
+- Retrofitting privacy is hard
+- Their business model requires data access
+- We're local-first by design
+
+---
+
 ## Competitive Threats
 
 ### Potential Risks

@@ -296,6 +296,59 @@ Most developers who could copy you:
 
 ---
 
+## Privacy as a Moat
+
+### The Enterprise Problem
+
+Every AI coding tool sends code to cloud:
+
+| Tool | Where Code Goes | Enterprise Friendly? |
+|------|-----------------|---------------------|
+| GitHub Copilot | Microsoft servers | ⚠️ Concerns |
+| Cursor | OpenAI servers | ❌ No |
+| Claude Code | Anthropic servers | ⚠️ Concerns |
+| Mem0 | Their cloud | ❌ No |
+| **MemoryLayer** | **Customer's AWS** | **✅ Yes** |
+
+### Our Privacy Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│              PRIVACY-FIRST ARCHITECTURE                  │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│  v1.0 (NOW):        100% Local                          │
+│  ├── Embeddings     → Local (transformers.js)           │
+│  ├── Search         → Local (SQLite)                    │
+│  ├── Storage        → Local (file system)               │
+│  └── AI             → None                              │
+│                                                          │
+│  v1.1 (PLANNED):    AWS Bedrock                         │
+│  ├── Pro/Team       → Our Bedrock account               │
+│  │                    (SOC2, HIPAA compliant)           │
+│  └── Enterprise     → THEIR Bedrock account             │
+│                       (Code never leaves their VPC)      │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Why This Is Hard to Copy
+
+| Moat | Why It Matters |
+|------|----------------|
+| **Enterprise trust** | We've built compliance story |
+| **Architecture** | Designed privacy-first from day 1 |
+| **Positioning** | "Code never leaves your infra" |
+| **Sales motion** | Enterprise playbook ready |
+
+### The Marketing Angle
+
+> **"MemoryLayer: The AI that never sees your code"**
+
+Competitors CAN'T say this. They send code to their servers.
+
+---
+
 ## How to Build Defensibility
 
 ### Phase 1: Speed Moat (Week 1-2)

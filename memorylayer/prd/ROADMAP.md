@@ -19,7 +19,7 @@
 │                                                                      │
 │  Phase 1: Foundation          Phase 2: Intelligence                 │
 │  ──────────────────          ────────────────────                   │
-│  Weeks 1-4                   Weeks 5-8                              │
+│  Weeks 1-4 ✓                 Weeks 5-8 ✓                            │
 │  Target: 10x                 Target: 30x                            │
 │                                                                      │
 │  ✓ MCP Server                ✓ AST-aware retrieval                  │
@@ -28,10 +28,9 @@
 │  ✓ Decision memory           ✓ Git commit analysis                  │
 │  ✓ Token budgeting           ✓ Import/export tracking               │
 │                                                                      │
-│                                                                      │
 │  Phase 3: Learning           Phase 4: Scale                         │
 │  ─────────────────           ──────────────                         │
-│  Weeks 9-14                  Weeks 15-20                            │
+│  Weeks 9-14 ✓                Weeks 15-20 ✓                          │
 │  Target: 100x                Target: Enterprise                     │
 │                                                                      │
 │  ✓ Query expansion           ✓ Multi-project support                │
@@ -39,6 +38,15 @@
 │  ✓ Predictive pre-fetch      ✓ ADR export                          │
 │  ✓ Usage-based learning      ✓ CLI commands                        │
 │  ✓ Personalized ranking      □ VS Code extension                    │
+│                                                                      │
+│  Phase 5: Killer Features (v1.1)                                    │
+│  ───────────────────────────────                                    │
+│  Weeks 21-32                 Target: Differentiation                │
+│                                                                      │
+│  □ Living Documentation      □ Context Rot Prevention               │
+│  □ Active Feature Context    □ Confidence Scoring                   │
+│  □ Change Intelligence       □ Architecture Enforcement             │
+│  □ Test Awareness            □ AWS Bedrock Integration              │
 │                                                                      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -309,6 +317,93 @@ Called by: all /api routes except /auth/login."
 | VS Code extension | □ | Future work |
 | Cloud sync (opt-in) | □ | Future work |
 | Enterprise auth | □ | Future work |
+
+---
+
+## Phase 5: Killer Features v1.1 (Weeks 21-32)
+
+**Goal:** Differentiate from competitors with features NO ONE else has.
+
+**AI Infrastructure:** AWS Bedrock (SOC2, HIPAA compliant)
+
+### Week 21-22: Living Documentation (P0)
+
+| Task | Status | Notes |
+|------|--------|-------|
+| File structure detection | □ | AST-based, no AI |
+| Component doc generation | □ | Template + AI hybrid |
+| Decision logging | □ | Auto-extract from git |
+| Daily changelog | □ | Template-based |
+| AI explanations | □ | Bedrock-powered |
+
+**Killer Value:** "What did we do yesterday?" - answered in seconds
+
+### Week 23-24: Active Feature Context (P0)
+
+| Task | Status | Notes |
+|------|--------|-------|
+| File tracking | □ | 100% local, no AI |
+| Hot cache | □ | LRU in memory |
+| Context assembly | □ | No AI |
+| Query tracking | □ | SQLite |
+
+**Killer Value:** 10x faster responses, AI knows what you're working on
+
+### Week 25-26: Context Rot Prevention (P0)
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Token counting | □ | No AI |
+| Health monitoring | □ | No AI |
+| Drift detection | □ | AI-powered |
+| Auto-summarization | □ | AI-powered |
+
+**Killer Value:** AI stays sharp through long sessions
+
+### Week 27-28: Confidence Scoring (P1)
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Pattern matching | □ | Embedding similarity, no AI |
+| Conflict detection | □ | Database lookup, no AI |
+| Score calculation | □ | Math formula, no AI |
+| Reasoning generation | □ | AI-powered (optional) |
+
+**Killer Value:** Know when to trust AI suggestions
+
+### Week 29-30: Change Intelligence (P1)
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Git tracking | □ | No AI |
+| Change correlation | □ | Keyword matching, no AI |
+| Root cause analysis | □ | AI-powered |
+| Fix suggestions | □ | AI-powered |
+
+**Killer Value:** "Why did it break?" - instant answer
+
+### Week 31-32: Architecture & Test Awareness (P2)
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Pattern extraction | □ | AST-based, no AI |
+| Pattern learning | □ | AI-powered (one-time) |
+| Test indexing | □ | AST-based, no AI |
+| Test generation | □ | AI-powered |
+
+**Killer Value:** AI respects your patterns and tests
+
+### Phase 5 AI Usage Summary
+
+| Feature | No-AI % | AI % | Monthly Cost |
+|---------|---------|------|--------------|
+| Living Documentation | 90% | 10% | ~$2.00/user |
+| Active Feature Context | 100% | 0% | FREE |
+| Context Rot Prevention | 70% | 30% | ~$0.10/user |
+| Confidence Scoring | 90% | 10% | ~$0.50/user |
+| Change Intelligence | 80% | 20% | ~$0.20/user |
+| Architecture/Tests | 85% | 15% | ~$0.45/user |
+| **TOTAL** | | | **~$3.25/user** |
 
 ---
 
