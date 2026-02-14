@@ -482,4 +482,45 @@ No competitor has solved this:
 
 ---
 
+## AI vs No-AI Components
+
+### No-AI (Free, Instant) - 70%
+
+| Component | Method | Cost |
+|-----------|--------|------|
+| Token counting | Simple count | FREE |
+| Recency scoring | Timestamp math | FREE |
+| Reference tracking | Count mentions | FREE |
+| Critical marking | User input storage | FREE |
+| Health monitoring | Threshold checks | FREE |
+| Context size tracking | Token math | FREE |
+
+### AI-Powered (Smart, On-demand) - 30%
+
+| Component | When Used | Cost |
+|-----------|-----------|------|
+| Drift detection | Every ~10 messages | ~$0.01 |
+| Auto-summarization | When context >70% | ~$0.02 |
+| Critical inference | On compaction | ~$0.005 |
+
+### Why AI Needed for Some Parts
+
+**Drift Detection:** Need AI to understand if responses match earlier instructions
+- "You said use JWT, but now suggesting sessions" → AI detects this
+
+**Summarization:** Need AI to intelligently compress while preserving meaning
+- Can't just truncate - must understand what's important
+
+### Cost Estimate
+- Per compaction: ~$0.02
+- Monthly (5 compactions): ~$0.10
+- Health checks: FREE
+
+### When AI Runs
+- Drift check: Background, every ~10 messages
+- Summarization: Only when context >70% full
+- **NOT** on every message
+
+---
+
 *Context Rot Prevention Specification - February 2026*

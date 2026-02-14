@@ -64,6 +64,30 @@ This folder contains specifications for the next major features that will differ
 
 ---
 
+## AI Usage Summary
+
+**MemoryLayer is 90% local processing, 10% AI magic.**
+
+| Feature | No-AI Components | AI Components | AI Cost |
+|---------|------------------|---------------|---------|
+| **Living Documentation** | File structure, AST, git | Code explanations | ~$0.01/file |
+| **Active Feature Context** | 100% no-AI | - | FREE |
+| **Context Rot Prevention** | Token counting, tracking | Summarization, drift | ~$0.02/use |
+| **Confidence Scoring** | Pattern matching, scoring | Reasoning (optional) | ~$0.005 |
+| **Change Intelligence** | Git tracking, correlation | Root cause analysis | ~$0.01/query |
+| **Architecture Enforcement** | AST patterns, validation | Pattern learning | ~$0.05 (one-time) |
+| **Test Awareness** | Test indexing, coverage | Test generation | ~$0.02/use |
+
+**Monthly Cost Estimate:** ~$2-3/developer
+
+### When AI Runs
+- **On-demand:** User asks for explanations, root cause, test updates
+- **When needed:** Context >70% full (summarization)
+- **One-time:** Pattern learning per project
+- **NOT:** On every save or file change
+
+---
+
 ## Killer Feature Summary
 
 ### Feature 1: Living Documentation (THE KILLER)

@@ -635,4 +635,47 @@ Search for more: [suggest_existing "your intent"]
 
 ---
 
+## AI vs No-AI Components
+
+### No-AI (Free, Instant) - 85%
+
+| Component | Method | Cost |
+|-----------|--------|------|
+| Pattern extraction | AST analysis | FREE |
+| Function indexing | AST parsing | FREE |
+| Duplicate detection | Embedding similarity | FREE |
+| Rule validation | Pattern matching | FREE |
+| Existing function lookup | Database search | FREE |
+| Usage counting | SQL query | FREE |
+| Structure analysis | AST parsing | FREE |
+
+### AI-Powered (Selective) - 15%
+
+| Component | When Used | Cost |
+|-----------|-----------|------|
+| Pattern learning | One-time per project | ~$0.05 |
+| Violation explanation | On user request | ~$0.01 |
+| Pattern suggestion | On new pattern type | ~$0.01 |
+
+### Why AI for Pattern Learning
+
+**Initial Learning:** AI analyzes codebase to identify your patterns
+- "You handle errors with AppError wrapper + logger"
+- "Your API calls use typed client with auth headers"
+
+This runs ONCE per project, then patterns are stored.
+
+### Cost Estimate
+- Pattern learning (one-time): ~$0.05
+- Per validation: FREE
+- Per explanation: ~$0.01
+- Monthly: ~$0.15
+
+### When AI Runs
+- One-time pattern learning when project initialized
+- Explanation only when user asks "why is this wrong?"
+- **NOT** on every validation
+
+---
+
 *Architecture Enforcement Specification - February 2026*

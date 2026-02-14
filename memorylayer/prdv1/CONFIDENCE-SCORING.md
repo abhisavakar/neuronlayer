@@ -528,4 +528,45 @@ Users need to know:
 
 ---
 
+## AI vs No-AI Components
+
+### No-AI (Free, Instant) - 90%
+
+| Component | Method | Cost |
+|-----------|--------|------|
+| Codebase pattern matching | Embedding similarity | FREE |
+| Decision conflict check | Database lookup | FREE |
+| Usage frequency count | SQL query | FREE |
+| Source tracking | Record what was used | FREE |
+| Warning detection | Rule-based checks | FREE |
+| Score calculation | Math formula | FREE |
+| Confidence level | Threshold mapping | FREE |
+
+### AI-Powered (Optional) - 10%
+
+| Component | When Used | Cost |
+|-----------|-----------|------|
+| Human-readable reasoning | On user request | ~$0.005 |
+
+### Why Mostly No-AI
+
+Confidence scoring is **mathematical**:
+```typescript
+score = (codebaseMatch * 0.5) + (decisionAligned * 0.3) + (patternFollowed * 0.2)
+```
+
+AI only adds value for generating human-readable explanations:
+- "High confidence because found in auth.ts and matches your error handling pattern"
+
+### Cost Estimate
+- Per confidence check: FREE
+- With reasoning: ~$0.005 (optional)
+- Monthly: ~$0.50 if reasoning enabled
+
+### When AI Runs
+- Only when user explicitly asks "why this confidence?"
+- **NOT** on every suggestion
+
+---
+
 *Confidence Scoring Specification - February 2026*

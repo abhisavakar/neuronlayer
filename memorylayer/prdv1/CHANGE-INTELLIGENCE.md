@@ -604,4 +604,44 @@ Add null check back:
 
 ---
 
+## AI vs No-AI Components
+
+### No-AI (Free, Instant) - 80%
+
+| Component | Method | Cost |
+|-----------|--------|------|
+| Git change tracking | Git commands | FREE |
+| File diff storage | Store diffs | FREE |
+| Keyword extraction | Regex/parsing | FREE |
+| Change-error correlation | Keyword matching | FREE |
+| Past bug lookup | Database search | FREE |
+| Change timeline | Database query | FREE |
+| File history | Git log parsing | FREE |
+
+### AI-Powered (On-demand) - 20%
+
+| Component | When Used | Cost |
+|-----------|-----------|------|
+| Root cause analysis | User asks "why broke?" | ~$0.01 |
+| Fix suggestions | User asks for fix | ~$0.01 |
+| Bug pattern recognition | On similar bug search | ~$0.005 |
+
+### Why AI for Some Parts
+
+**Root Cause:** Need AI to understand error messages and correlate with code changes
+- "TypeError on line 45" + "Removed null check" → AI connects the dots
+
+**Fix Suggestions:** Need AI to generate actual code fixes based on past solutions
+
+### Cost Estimate
+- Change tracking: FREE
+- Per "why broke?" query: ~$0.01
+- Monthly (20 queries): ~$0.20
+
+### When AI Runs
+- Only when user explicitly asks "why did it break?"
+- **NOT** on every error or change
+
+---
+
 *Change Intelligence Specification - February 2026*

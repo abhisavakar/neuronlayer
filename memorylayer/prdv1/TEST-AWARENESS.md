@@ -605,4 +605,47 @@ Functions:
 
 ---
 
+## AI vs No-AI Components
+
+### No-AI (Free, Instant) - 85%
+
+| Component | Method | Cost |
+|-----------|--------|------|
+| Test file indexing | AST parsing | FREE |
+| Coverage mapping | Static analysis | FREE |
+| Assertion extraction | AST parsing | FREE |
+| Impact prediction | Dependency analysis | FREE |
+| Test discovery | Glob patterns | FREE |
+| Framework detection | Config file parsing | FREE |
+| Related tests lookup | Database query | FREE |
+
+### AI-Powered (On-demand) - 15%
+
+| Component | When Used | Cost |
+|-----------|-----------|------|
+| Test update generation | User asks for updates | ~$0.02 |
+| New test generation | User asks for new test | ~$0.02 |
+| Test explanation | User asks "what does this test?" | ~$0.01 |
+
+### Why AI for Test Generation
+
+**Generating Tests:** Need AI to write actual test code
+- "Generate test for new login() signature"
+- "Update assertion for changed return type"
+
+This is creative work that requires understanding code intent.
+
+### Cost Estimate
+- Test indexing: FREE
+- Coverage check: FREE
+- Per test generation: ~$0.02
+- Monthly (15 generations): ~$0.30
+
+### When AI Runs
+- Only when user explicitly requests test updates
+- **NOT** on every code change
+- **NOT** for simple coverage checks
+
+---
+
 *Test-Aware Suggestions Specification - February 2026*

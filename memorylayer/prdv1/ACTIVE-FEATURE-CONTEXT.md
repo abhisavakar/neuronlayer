@@ -821,4 +821,35 @@ src/
 
 ---
 
+## AI vs No-AI Components
+
+### 100% No-AI Required
+
+| Component | Method | Cost |
+|-----------|--------|------|
+| File open tracking | File system events | FREE |
+| File change recording | Store diffs | FREE |
+| Hot cache management | LRU cache in memory | FREE |
+| Context assembly | Combine cached data | FREE |
+| Query tracking | SQLite storage | FREE |
+| Context switching | Cache lookup | FREE |
+| Recent contexts list | Database query | FREE |
+
+### Why No AI Needed
+
+This feature is pure **caching and tracking** - no intelligence required:
+- Watch files → Store in cache
+- User asks question → Return cached files
+- No interpretation, summarization, or generation
+
+### Cost Estimate
+- Per operation: FREE
+- Monthly: FREE
+- This is our most efficient feature
+
+### Performance
+All operations <5ms because it's just memory/database lookups.
+
+---
+
 *Specification v1.0 - February 2026*

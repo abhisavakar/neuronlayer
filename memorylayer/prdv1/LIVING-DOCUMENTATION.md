@@ -579,4 +579,51 @@ Once users have auto-generated documentation:
 
 ---
 
+## AI vs No-AI Components
+
+### No-AI (Free, Instant) - 90%
+
+| Component | Method | Cost |
+|-----------|--------|------|
+| File structure detection | File system parsing | FREE |
+| Function/class extraction | AST parsing | FREE |
+| Import/dependency mapping | AST parsing | FREE |
+| Git history tracking | Git commands | FREE |
+| Change detection | File diff | FREE |
+| Daily changelog generation | Template + git data | FREE |
+| Decision logging | SQLite storage | FREE |
+| Component doc structure | Template-based | FREE |
+
+### AI-Powered (Smart, On-demand) - 10%
+
+| Component | When Used | Cost |
+|-----------|-----------|------|
+| Code explanations | On significant changes (>5 lines) | ~$0.01/file |
+| Architecture overview | On user request | ~$0.02 |
+| "Why" documentation | On user request | ~$0.01 |
+| Design decision inference | On user request | ~$0.01 |
+
+### Hybrid Approach
+
+```
+Template generates (FREE):          AI enhances (COSTS):
+├── File: src/auth.ts               ├── Purpose: "Handles JWT auth..."
+├── Functions: login(), logout()    ├── How: "Validates, issues tokens..."
+├── Dependencies: jwt, bcrypt       └── Why: "Uses bcrypt for security..."
+├── Lines: 150
+└── Modified: Feb 14
+```
+
+### Cost Estimate
+- Per file (with AI): ~$0.01
+- Per file (no AI): FREE
+- Monthly (10 files/day): ~$2.00
+
+### When AI Runs
+- On significant code changes (>5 lines of logic)
+- On user request ("explain this file")
+- **NOT** on every save
+
+---
+
 *Living Documentation Specification - February 2026*
