@@ -9,11 +9,20 @@
   },
   "scripts": {
     "build": "node esbuild.config.js",
+    "build:benchmark": "node esbuild.benchmark.cjs",
+    "build:all": "npm run build && npm run build:benchmark",
     "dev": "node --watch dist/index.js",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "benchmark": "npm run build:all && node dist/benchmark/working-benchmark.js",
+    "benchmark:quick": "npm run build:all && node dist/benchmark/working-benchmark.js --quick",
+    "benchmark:full": "npm run build:all && node dist/benchmark/working-benchmark.js --iterations 50",
+    "benchmark:publication": "npm run build:all && node dist/benchmark/publication-benchmark.js --publication",
+    "benchmark:standard": "npm run build:all && node dist/benchmark/publication-benchmark.js --preset standard",
+    "benchmark:download": "npm run build:benchmark && node dist/benchmark/project-downloader.js",
+    "benchmark:analyze": "npm run build:benchmark && node dist/benchmark/analyze-results.js"
   },
   "keywords": [
     "mcp",

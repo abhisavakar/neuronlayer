@@ -6,10 +6,13 @@
  */
 
 import { execSync, spawn } from 'child_process';
-import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, statSync } from 'fs';
+import { join, extname } from 'path';
+import { platform } from 'os';
 import type { TestQuery, TaskType } from './test-scenarios.js';
 import { allQueries, getQueriesForTask } from './test-scenarios.js';
+
+const isWindows = platform() === 'win32';
 
 // ============================================================================
 // TYPES AND INTERFACES
@@ -153,41 +156,58 @@ export class TestHarness {
   }
   
   /**
-   * Detect test environment
+   * Detect test environment (cross-platform)
    */
   private detectEnvironment(): TestEnvironment {
     const projectPath = this.config.projectPath;
     const dataDir = join(projectPath, '.memorylayer');
-    
+
     // Count files and lines
     let fileCount = 0;
     let lineCount = 0;
-    
+
     try {
-      // Use git to count (if available)
-      const output = execSync('git ls-files | xargs wc -l 2>/dev/null | tail -1', {
-        cwd: projectPath,
-        encoding: 'utf-8',
-        timeout: 10000
-      });
-      const match = output.match(/(\d+) total/);
-      if (match) {
-        lineCount = parseInt(match[1]);
+      if (isWindows) {
+        // Windows: Use PowerShell for file counting
+        const fileOutput = execSync(
+          'powershell -Command "(Get-ChildItem -Recurse -File -Include *.ts,*.js,*.tsx,*.jsx -ErrorAction SilentlyContinue | Measure-Object).Count"',
+          {
+            cwd: projectPath,
+            encoding: 'utf-8',
+            timeout: 30000,
+            shell: 'powershell.exe'
+          }
+        );
+        fileCount = parseInt(fileOutput.trim()) || 50;
+
+        // Estimate lines (rough approximation)
+        lineCount = fileCount * 150; // Average ~150 lines per file
+      } else {
+        // Unix: Use git to count (if available)
+        const output = execSync('git ls-files | xargs wc -l 2>/dev/null | tail -1', {
+          cwd: projectPath,
+          encoding: 'utf-8',
+          timeout: 10000
+        });
+        const match = output.match(/(\d+) total/);
+        if (match) {
+          lineCount = parseInt(match[1]);
+        }
+
+        const fileOutput = execSync('git ls-files | wc -l', {
+          cwd: projectPath,
+          encoding: 'utf-8',
+          timeout: 10000
+        });
+        fileCount = parseInt(fileOutput.trim());
       }
-      
-      const fileOutput = execSync('git ls-files | wc -l', {
-        cwd: projectPath,
-        encoding: 'utf-8',
-        timeout: 10000
-      });
-      fileCount = parseInt(fileOutput.trim());
     } catch {
       // Fallback to approximate
-      console.warn('Could not detect file count using git, using defaults');
+      console.warn('Could not detect file count, using defaults');
       fileCount = 50;
       lineCount = 10000;
     }
-    
+
     return {
       projectPath,
       dataDir,
@@ -394,37 +414,53 @@ export class TestHarness {
   }
   
   /**
-   * Simulate grep search
+   * Simulate grep search (cross-platform)
    */
   private async grepSearch(terms: string[]): Promise<string[]> {
     const startTime = performance.now();
     const files: string[] = [];
-    
+
     try {
       for (const term of terms) {
-        const result = execSync(
-          `grep -r -l "${term}" --include="*.ts" --include="*.js" . 2>/dev/null | head -20`,
-          {
-            cwd: this.environment.projectPath,
-            encoding: 'utf-8',
-            timeout: 30000
-          }
-        );
-        
+        let result: string;
+
+        if (isWindows) {
+          // Windows: Use PowerShell Select-String
+          result = execSync(
+            `powershell -Command "Get-ChildItem -Recurse -Include '*.ts','*.js','*.tsx','*.jsx' -ErrorAction SilentlyContinue | Select-String -Pattern '${term}' -SimpleMatch -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path -Unique | Select-Object -First 20"`,
+            {
+              cwd: this.environment.projectPath,
+              encoding: 'utf-8',
+              timeout: 60000,
+              shell: 'powershell.exe'
+            }
+          );
+        } else {
+          // Unix/Linux/Mac: Use grep
+          result = execSync(
+            `grep -r -l "${term}" --include="*.ts" --include="*.js" --include="*.tsx" --include="*.jsx" . 2>/dev/null | head -20`,
+            {
+              cwd: this.environment.projectPath,
+              encoding: 'utf-8',
+              timeout: 30000
+            }
+          );
+        }
+
         const found = result.split('\n').filter(f => f.trim());
         files.push(...found);
       }
     } catch {
-      // Grep returns exit code 1 when no matches found
+      // Grep/PowerShell returns exit code 1 when no matches found
     }
-    
+
     // Artificial delay to simulate grep being slow on large codebases
     const elapsed = performance.now() - startTime;
     const minGrepTime = 500 + (this.environment.lineCount / 100);
     if (elapsed < minGrepTime) {
       await this.sleep(minGrepTime - elapsed);
     }
-    
+
     return [...new Set(files)].slice(0, 10);
   }
   

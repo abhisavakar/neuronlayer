@@ -8,7 +8,9 @@
 import { spawn, execSync } from 'child_process';
 import { existsSync, writeFileSync, mkdirSync, readFileSync, rmSync } from 'fs';
 import { join } from 'path';
-import { tmpdir } from 'os';
+import { tmpdir, platform } from 'os';
+
+const isWindows = platform() === 'win32';
 
 export interface OpenCodeConfig {
   model?: string;
@@ -184,21 +186,37 @@ export class OpenCodeClient {
   }
 
   /**
-   * Search files using grep
+   * Search files using grep (cross-platform)
    */
   private async grepSearch(terms: string[], projectPath: string): Promise<string[]> {
     const files: string[] = [];
     
     for (const term of terms) {
       try {
-        const result = execSync(
-          `grep -r -l "${term}" --include="*.ts" --include="*.js" --include="*.tsx" --include="*.jsx" . 2>/dev/null | head -20`,
-          {
-            cwd: projectPath,
-            encoding: 'utf-8',
-            timeout: 30000
-          }
-        );
+        let result: string;
+        
+        if (isWindows) {
+          // Windows: Use PowerShell's Select-String or findstr
+          result = execSync(
+            `powershell -Command "Get-ChildItem -Recurse -Include '*.ts','*.js','*.tsx','*.jsx' | Select-String -Pattern '${term}' | Select-Object -ExpandProperty Path -Unique | Select-Object -First 20"`,
+            {
+              cwd: projectPath,
+              encoding: 'utf-8',
+              timeout: 30000,
+              shell: 'powershell.exe'
+            }
+          );
+        } else {
+          // Unix/Linux/Mac: Use grep
+          result = execSync(
+            `grep -r -l "${term}" --include="*.ts" --include="*.js" --include="*.tsx" --include="*.jsx" . 2>/dev/null | head -20`,
+            {
+              cwd: projectPath,
+              encoding: 'utf-8',
+              timeout: 30000
+            }
+          );
+        }
         
         const found = result.split('\n').filter(f => f.trim());
         files.push(...found);
@@ -250,15 +268,17 @@ Please provide a clear, concise answer. If the context doesn't contain the answe
       const promptFile = join(this.sessionDir, `prompt-${Date.now()}.txt`);
       writeFileSync(promptFile, prompt);
 
-      // Spawn OpenCode process
-      const proc = spawn('opencode', [
+      // Spawn OpenCode process (Windows-compatible)
+      const command = isWindows ? 'opencode.cmd' : 'opencode';
+      const proc = spawn(command, [
         'run',
         '--model', this.config.model!,
         '--no-context', // Don't use OpenCode's own context
         prompt
       ], {
         cwd: this.sessionDir,
-        stdio: ['pipe', 'pipe', 'pipe']
+        stdio: ['pipe', 'pipe', 'pipe'],
+        shell: isWindows // Use shell on Windows
       });
 
       let output = '';
@@ -325,11 +345,15 @@ Please provide a clear, concise answer. If the context doesn't contain the answe
 }
 
 /**
- * Check OpenCode availability and version
+ * Check OpenCode availability and version (cross-platform)
  */
 export function checkOpenCode(): { installed: boolean; version?: string; error?: string } {
   try {
-    const output = execSync('opencode --version', { encoding: 'utf-8' });
+    const command = isWindows ? 'opencode.cmd --version' : 'opencode --version';
+    const output = execSync(command, { 
+      encoding: 'utf-8',
+      shell: isWindows ? 'cmd.exe' : '/bin/sh'
+    });
     return {
       installed: true,
       version: output.trim()

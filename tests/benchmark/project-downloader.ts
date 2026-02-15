@@ -6,8 +6,11 @@
  */
 
 import { execSync } from 'child_process';
-import { existsSync, mkdirSync, statSync, writeFileSync, readFileSync } from 'fs';
+import { existsSync, mkdirSync, statSync, writeFileSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
+import { platform } from 'os';
+
+const isWindows = platform() === 'win32';
 
 export interface TestProject {
   name: string;
@@ -135,61 +138,101 @@ export class ProjectDownloader {
   }
 
   /**
-   * Analyze project statistics
+   * Analyze project statistics (cross-platform)
    */
   private analyzeProject(projectPath: string): Omit<ProjectStats, 'path' | 'name' | 'indexed'> {
     let totalFiles = 0;
     let totalLines = 0;
     const languageBreakdown: Record<string, number> = {};
-    
+
     try {
-      // Count lines using git (more accurate)
-      const output = execSync(
-        'git ls-files | xargs wc -l 2>/dev/null | tail -1',
-        {
-          cwd: projectPath,
-          encoding: 'utf-8',
-          timeout: 30000
+      if (isWindows) {
+        // Windows: Use PowerShell for counting
+        const fileOutput = execSync(
+          'powershell -Command "(Get-ChildItem -Recurse -File -Include *.ts,*.tsx,*.js,*.jsx,*.py,*.go,*.rs,*.java,*.cpp,*.c,*.h -ErrorAction SilentlyContinue | Measure-Object).Count"',
+          {
+            cwd: projectPath,
+            encoding: 'utf-8',
+            timeout: 60000,
+            shell: 'powershell.exe'
+          }
+        );
+        totalFiles = parseInt(fileOutput.trim()) || 100;
+
+        // Estimate lines
+        totalLines = totalFiles * 150;
+
+        // Language breakdown using PowerShell
+        try {
+          const langOutput = execSync(
+            `powershell -Command "Get-ChildItem -Recurse -File -Include *.ts,*.tsx,*.js,*.jsx -ErrorAction SilentlyContinue | Group-Object Extension | Select-Object Name, Count | ConvertTo-Json"`,
+            {
+              cwd: projectPath,
+              encoding: 'utf-8',
+              timeout: 30000,
+              shell: 'powershell.exe'
+            }
+          );
+
+          const langData = JSON.parse(langOutput || '[]');
+          const langArray = Array.isArray(langData) ? langData : [langData];
+          langArray.forEach((item: any) => {
+            if (item && item.Name && item.Count) {
+              const ext = item.Name.replace('.', '');
+              languageBreakdown[ext] = item.Count;
+            }
+          });
+        } catch {
+          // Ignore language breakdown errors
         }
-      );
-      
-      const match = output.match(/(\d+) total/);
-      if (match) {
-        totalLines = parseInt(match[1]);
-      }
-      
-      // Count files
-      const fileOutput = execSync('git ls-files | wc -l', {
-        cwd: projectPath,
-        encoding: 'utf-8',
-        timeout: 10000
-      });
-      totalFiles = parseInt(fileOutput.trim());
-      
-      // Language breakdown
-      const langOutput = execSync(
-        "git ls-files | grep -E '\\.(ts|tsx|js|jsx|py|go|rs|java|cpp|c|h)$' | sed 's/.*\\.//' | sort | uniq -c | sort -rn | head -10",
-        {
-          cwd: projectPath,
-          encoding: 'utf-8',
-          timeout: 30000
-        }
-      );
-      
-      langOutput.split('\n').forEach(line => {
-        const match = line.trim().match(/(\d+)\s+(\w+)/);
+      } else {
+        // Unix: Use git for counting (more accurate)
+        const output = execSync(
+          'git ls-files | xargs wc -l 2>/dev/null | tail -1',
+          {
+            cwd: projectPath,
+            encoding: 'utf-8',
+            timeout: 30000
+          }
+        );
+
+        const match = output.match(/(\d+) total/);
         if (match) {
-          languageBreakdown[match[2]] = parseInt(match[1]);
+          totalLines = parseInt(match[1]);
         }
-      });
-      
+
+        // Count files
+        const fileOutput = execSync('git ls-files | wc -l', {
+          cwd: projectPath,
+          encoding: 'utf-8',
+          timeout: 10000
+        });
+        totalFiles = parseInt(fileOutput.trim());
+
+        // Language breakdown
+        const langOutput = execSync(
+          "git ls-files | grep -E '\\.(ts|tsx|js|jsx|py|go|rs|java|cpp|c|h)$' | sed 's/.*\\.//' | sort | uniq -c | sort -rn | head -10",
+          {
+            cwd: projectPath,
+            encoding: 'utf-8',
+            timeout: 30000
+          }
+        );
+
+        langOutput.split('\n').forEach(line => {
+          const langMatch = line.trim().match(/(\d+)\s+(\w+)/);
+          if (langMatch) {
+            languageBreakdown[langMatch[2]] = parseInt(langMatch[1]);
+          }
+        });
+      }
     } catch {
       // Fallback to rough estimates
-      console.log('   Warning: Could not analyze with git, using estimates');
+      console.log('   Warning: Could not analyze project, using estimates');
       totalFiles = 100;
       totalLines = 10000;
     }
-    
+
     return {
       totalFiles,
       totalLines,
@@ -223,11 +266,10 @@ export class ProjectDownloader {
    */
   listDownloaded(): string[] {
     if (!existsSync(this.baseDir)) return [];
-    
-    const { readdirSync } = require('fs');
+
     return readdirSync(this.baseDir, { withFileTypes: true })
-      .filter((dirent: any) => dirent.isDirectory())
-      .map((dirent: any) => dirent.name);
+      .filter((dirent) => dirent.isDirectory())
+      .map((dirent) => dirent.name);
   }
 
   /**
