@@ -296,7 +296,8 @@ export function MyComponent({ value, onChange }: Props) {
       description,
       JSON.stringify(examples),
       JSON.stringify(antiPatterns),
-      JSON.stringify(rules)
+      JSON.stringify(rules),
+      timestamp
     );
 
     return {
