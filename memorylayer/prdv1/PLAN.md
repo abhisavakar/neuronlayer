@@ -597,3 +597,8 @@ CREATE INDEX IF NOT EXISTS idx_patterns_name ON patterns(name);
 - Detect pattern rules from code structure
 - Normalize code for duplicate detection
 - Track pattern usage count      
+
+
+
+Resume this session with:                                                                                                    
+claude --resume 6e65a740-e083-44fd-a671-e0ca9a6869d3  
