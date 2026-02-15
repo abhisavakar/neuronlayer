@@ -16,9 +16,10 @@ import { FeatureContextManager } from './feature-context.js';
 import { LivingDocumentationEngine } from './living-docs/index.js';
 import { ContextRotPrevention } from './context-rot/index.js';
 import { ConfidenceScorer } from './confidence/index.js';
+import { ChangeIntelligence } from './change-intelligence/index.js';
 import { detectLanguage, getPreview, countLines } from '../utils/files.js';
 import type { MemoryLayerConfig, AssembledContext, Decision, ProjectSummary, SearchResult, CodeSymbol, SymbolKind, ActiveFeatureContext, HotContext } from '../types/index.js';
-import type { ArchitectureDoc, ComponentDoc, DailyChangelog, ChangelogOptions, ValidationResult, ActivityResult, UndocumentedItem, ContextHealth, CompactionResult, CompactionOptions, CriticalContext, DriftResult, ConfidenceResult, ConfidenceLevel, ConfidenceSources, ConflictResult } from '../types/documentation.js';
+import type { ArchitectureDoc, ComponentDoc, DailyChangelog, ChangelogOptions, ValidationResult, ActivityResult, UndocumentedItem, ContextHealth, CompactionResult, CompactionOptions, CriticalContext, DriftResult, ConfidenceResult, ConfidenceLevel, ConfidenceSources, ConflictResult, ChangeQueryResult, ChangeQueryOptions, Diagnosis, PastBug, FixSuggestion, Change } from '../types/documentation.js';
 import type Database from 'better-sqlite3';
 
 export class MemoryLayerEngine {
@@ -38,6 +39,7 @@ export class MemoryLayerEngine {
   private livingDocs: LivingDocumentationEngine;
   private contextRotPrevention: ContextRotPrevention;
   private confidenceScorer: ConfidenceScorer;
+  private changeIntelligence: ChangeIntelligence;
   private initialized = false;
 
   constructor(config: MemoryLayerConfig) {
@@ -106,6 +108,14 @@ export class MemoryLayerEngine {
       this.indexer.getEmbeddingGenerator()
     );
 
+    // Phase 9: Initialize change intelligence
+    this.changeIntelligence = new ChangeIntelligence(
+      config.projectPath,
+      this.db,
+      this.tier2,
+      this.indexer.getEmbeddingGenerator()
+    );
+
     // Register this project
     const projectInfo = this.projectManager.registerProject(config.projectPath);
     this.projectManager.setActiveProject(projectInfo.id);
@@ -152,6 +162,12 @@ export class MemoryLayerEngine {
 
     // Start watching for changes
     this.indexer.startWatching();
+
+    // Sync change intelligence from git
+    const synced = this.changeIntelligence.initialize();
+    if (synced > 0) {
+      console.error(`Synced ${synced} changes from git history`);
+    }
 
     this.initialized = true;
     console.error('MemoryLayer initialized');
@@ -903,6 +919,53 @@ export class MemoryLayerEngine {
   // Format confidence result for display
   formatConfidenceResult(result: ConfidenceResult): string {
     return ConfidenceScorer.formatResult(result);
+  }
+
+  // ========== Phase 9: Change Intelligence ==========
+
+  // Query what changed
+  whatChanged(options: ChangeQueryOptions = {}): ChangeQueryResult {
+    return this.changeIntelligence.whatChanged(options);
+  }
+
+  // Get changes for a specific file
+  whatChangedIn(file: string, limit?: number): Change[] {
+    return this.changeIntelligence.whatChangedIn(file, limit);
+  }
+
+  // Diagnose why something broke
+  whyBroke(error: string, options?: { file?: string; line?: number }): Diagnosis {
+    return this.changeIntelligence.whyBroke(error, options);
+  }
+
+  // Find similar bugs from history
+  findSimilarBugs(error: string, limit?: number): PastBug[] {
+    return this.changeIntelligence.findSimilarBugs(error, limit);
+  }
+
+  // Suggest fixes for an error
+  suggestFix(error: string, context?: string): FixSuggestion[] {
+    return this.changeIntelligence.suggestFix(error, context);
+  }
+
+  // Get recent changes
+  getRecentChanges(hours: number = 24): Change[] {
+    return this.changeIntelligence.getRecentChanges(hours);
+  }
+
+  // Format changes for display
+  formatChanges(result: ChangeQueryResult): string {
+    return ChangeIntelligence.formatChanges(result);
+  }
+
+  // Format diagnosis for display
+  formatDiagnosis(diagnosis: Diagnosis): string {
+    return ChangeIntelligence.formatDiagnosis(diagnosis);
+  }
+
+  // Format fix suggestions for display
+  formatFixSuggestions(suggestions: FixSuggestion[]): string {
+    return ChangeIntelligence.formatFixSuggestions(suggestions);
   }
 
   shutdown(): void {

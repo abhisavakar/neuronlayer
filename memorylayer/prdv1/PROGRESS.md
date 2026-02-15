@@ -25,6 +25,7 @@ MemoryLayer is an MCP (Model Context Protocol) server that provides intelligent 
 | **Living Documentation** | P0 | Auto-generate architecture docs, changelogs, component docs | `src/core/living-docs/` |
 | **Context Rot Prevention** | P0 | Detect drift, track context health, smart compaction | `src/core/context-rot/` |
 | **Confidence Scoring** | P1 | Score code suggestions, track sources, detect conflicts | `src/core/confidence/` |
+| **Change Intelligence** | P1 | Track changes, diagnose bugs, suggest fixes | `src/core/change-intelligence/` |
 
 ---
 
@@ -144,22 +145,49 @@ src/core/confidence/
 
 ---
 
-## Not Yet Implemented
+## Recently Completed: Change Intelligence (P1)
 
-### Phase 4: Change Intelligence (P1)
-**Effort:** 1 week
+### What It Does
+- Tracks changes from git history
+- Diagnoses why something broke by correlating errors with recent changes
+- Finds similar bugs from history with their fixes
+- Suggests fixes based on past solutions and patterns
+- Recognizes common error patterns and provides targeted suggestions
 
-**Description:** Understand impact of code changes.
+### New Files Created
+```
+src/core/change-intelligence/
+├── index.ts                    # Barrel export
+├── change-intelligence.ts      # Main orchestrator
+├── change-tracker.ts           # Git change tracking
+├── bug-correlator.ts           # Bug correlation
+└── fix-suggester.ts            # Fix suggestions
+```
 
-**Planned Features:**
-- Dependency impact analysis
-- Breaking change detection
-- Suggest affected tests
-- Change ripple visualization
+### New MCP Tools
+| Tool | Description |
+|------|-------------|
+| `what_changed` | Query what changed in the codebase |
+| `why_broke` | Diagnose why something broke |
+| `find_similar_bugs` | Find similar bugs from history |
+| `suggest_fix` | Get fix suggestions for an error |
+
+### Database Tables Added
+- `change_history` - Stores git changes (file, diff, author, timestamp)
+- `bug_history` - Stores bugs and their fixes
+
+### Features
+- Git integration for change tracking
+- Keyword extraction from errors
+- Change-error correlation with confidence scores
+- 10+ common error patterns recognized
+- 10+ common fix patterns with suggestions
 
 ---
 
-### Phase 5: Architecture Enforcement (P2)
+## Not Yet Implemented
+
+### Architecture Enforcement (P2)
 **Effort:** 2 weeks
 
 **Description:** Enforce architectural rules and patterns.
@@ -172,7 +200,7 @@ src/core/confidence/
 
 ---
 
-### Phase 6: Test-Aware Suggestions (P2)
+### Test-Aware Suggestions (P2)
 **Effort:** 2 weeks
 
 **Description:** Integrate test coverage into context.
@@ -313,6 +341,6 @@ Example MCP client configuration:
 
 1. ~~**Context Rot Prevention (P0)**~~ - ✅ Complete
 2. ~~**Confidence Scoring (P1)**~~ - ✅ Complete
-3. **Change Intelligence (P1)** - Useful for refactoring
+3. ~~**Change Intelligence (P1)**~~ - ✅ Complete
 4. **Architecture Enforcement (P2)** - Nice to have
 5. **Test-Aware Suggestions (P2)** - Nice to have

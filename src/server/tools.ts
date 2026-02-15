@@ -612,6 +612,87 @@ export const toolDefinitions: ToolDefinition[] = [
       },
       required: ['code']
     }
+  },
+  // Phase 9: Change Intelligence tools
+  {
+    name: 'what_changed',
+    description: 'Query what changed in the codebase. Returns file changes, authors, and line counts.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        since: {
+          type: 'string',
+          description: 'Time period: "yesterday", "today", "this week", "last week", or a date'
+        },
+        file: {
+          type: 'string',
+          description: 'Filter to specific file or folder (optional)'
+        },
+        author: {
+          type: 'string',
+          description: 'Filter by author name (optional)'
+        }
+      },
+      required: ['since']
+    }
+  },
+  {
+    name: 'why_broke',
+    description: 'Diagnose why something broke. Correlates errors with recent changes and finds similar past bugs.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        error: {
+          type: 'string',
+          description: 'The error message or symptom'
+        },
+        file: {
+          type: 'string',
+          description: 'File where error occurs (optional)'
+        },
+        line: {
+          type: 'number',
+          description: 'Line number (optional)'
+        }
+      },
+      required: ['error']
+    }
+  },
+  {
+    name: 'find_similar_bugs',
+    description: 'Find similar bugs from history with their fixes.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        error: {
+          type: 'string',
+          description: 'Error message to search for'
+        },
+        limit: {
+          type: 'number',
+          description: 'Max results (default 5)'
+        }
+      },
+      required: ['error']
+    }
+  },
+  {
+    name: 'suggest_fix',
+    description: 'Get fix suggestions for an error based on history and patterns.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        error: {
+          type: 'string',
+          description: 'Error to fix'
+        },
+        context: {
+          type: 'string',
+          description: 'Additional context (e.g., "database query", "API call")'
+        }
+      },
+      required: ['error']
+    }
   }
 ];
 
@@ -1552,6 +1633,128 @@ export async function handleToolCall(
         message: result.hasConflicts
           ? `Found ${result.conflicts.length} conflict(s) with past decisions`
           : 'No conflicts with past decisions'
+      };
+    }
+
+    // Phase 9: Change Intelligence tools
+    case 'what_changed': {
+      const since = args.since as string;
+      const file = args.file as string | undefined;
+      const author = args.author as string | undefined;
+
+      const result = engine.whatChanged({ since, file, author });
+
+      return {
+        period: result.period,
+        since: result.since.toISOString(),
+        until: result.until.toISOString(),
+        total_files: result.totalFiles,
+        total_lines_added: result.totalLinesAdded,
+        total_lines_removed: result.totalLinesRemoved,
+        by_author: result.byAuthor,
+        by_type: result.byType,
+        changes: result.changes.slice(0, 20).map(c => ({
+          file: c.file,
+          type: c.type,
+          lines_added: c.linesAdded,
+          lines_removed: c.linesRemoved,
+          author: c.author,
+          timestamp: c.timestamp.toISOString(),
+          commit_message: c.commitMessage,
+          commit_hash: c.commitHash.slice(0, 7)
+        })),
+        formatted: engine.formatChanges(result),
+        message: result.changes.length === 0
+          ? `No changes found since ${since}`
+          : `Found ${result.changes.length} changes across ${result.totalFiles} files`
+      };
+    }
+
+    case 'why_broke': {
+      const error = args.error as string;
+      const file = args.file as string | undefined;
+      const line = args.line as number | undefined;
+
+      const diagnosis = engine.whyBroke(error, { file, line });
+
+      return {
+        likely_cause: diagnosis.likelyCause ? {
+          file: diagnosis.likelyCause.file,
+          author: diagnosis.likelyCause.author,
+          timestamp: diagnosis.likelyCause.timestamp.toISOString(),
+          commit_message: diagnosis.likelyCause.commitMessage,
+          commit_hash: diagnosis.likelyCause.commitHash.slice(0, 7),
+          diff: diagnosis.likelyCause.diff.slice(0, 500)
+        } : null,
+        confidence: diagnosis.confidence,
+        related_changes: diagnosis.relatedChanges.map(c => ({
+          file: c.file,
+          timestamp: c.timestamp.toISOString(),
+          commit_message: c.commitMessage
+        })),
+        past_similar_bugs: diagnosis.pastSimilarBugs.map(b => ({
+          error: b.error.slice(0, 100),
+          similarity: b.similarity,
+          date: b.date.toISOString(),
+          fix: b.fix,
+          file: b.file
+        })),
+        suggested_fix: diagnosis.suggestedFix,
+        reasoning: diagnosis.reasoning,
+        formatted: engine.formatDiagnosis(diagnosis),
+        message: diagnosis.likelyCause
+          ? `Found likely cause in ${diagnosis.likelyCause.file} (${diagnosis.confidence}% confidence)`
+          : 'Could not identify specific cause'
+      };
+    }
+
+    case 'find_similar_bugs': {
+      const error = args.error as string;
+      const limit = args.limit as number | undefined;
+
+      const bugs = engine.findSimilarBugs(error, limit);
+
+      return {
+        total: bugs.length,
+        bugs: bugs.map(b => ({
+          id: b.id,
+          error: b.error.slice(0, 100),
+          similarity: b.similarity,
+          date: b.date.toISOString(),
+          cause: b.cause,
+          fix: b.fix,
+          file: b.file,
+          fix_diff: b.fixDiff?.slice(0, 200)
+        })),
+        message: bugs.length === 0
+          ? 'No similar bugs found in history'
+          : `Found ${bugs.length} similar bug(s) in history`
+      };
+    }
+
+    case 'suggest_fix': {
+      const error = args.error as string;
+      const context = args.context as string | undefined;
+
+      const suggestions = engine.suggestFix(error, context);
+
+      return {
+        total: suggestions.length,
+        suggestions: suggestions.map(s => ({
+          confidence: s.confidence,
+          fix: s.fix,
+          reason: s.reason,
+          diff: s.diff,
+          source: s.source,
+          past_fix: s.pastFix ? {
+            date: s.pastFix.date.toISOString(),
+            file: s.pastFix.file
+          } : null
+        })),
+        formatted: engine.formatFixSuggestions(suggestions),
+        message: suggestions.length === 0
+          ? 'No fix suggestions available'
+          : `Found ${suggestions.length} fix suggestion(s)`
       };
     }
 

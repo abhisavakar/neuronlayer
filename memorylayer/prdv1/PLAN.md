@@ -16,11 +16,11 @@
 | Living Documentation | P0 | ✅ Complete |
 | Context Rot Prevention | P0 | ✅ Complete |
 | Confidence Scoring | P1 | ✅ Complete |
+| Change Intelligence | P1 | ✅ Complete |
 
 ### Not Implemented
 | Feature | Priority | Effort | Status |
 |---------|----------|--------|--------|
-| Change Intelligence | P1 | 1 week | ❌ Not started |
 | Architecture Enforcement | P2 | 2 weeks | ❌ Not started |
 | Test-Aware Suggestions | P2 | 2 weeks | ❌ Not started |
 
@@ -463,7 +463,7 @@ export class MemoryLayerEngine {
 | Phase | Feature | Priority | Effort | Status |
 |-------|---------|----------|--------|--------|
 | 3 | Confidence Scoring | P1 | 1 week | ✅ Complete |
-| 4 | Change Intelligence | P1 | 1 week | ❌ Not started |
+| 4 | Change Intelligence | P1 | 1 week | ✅ Complete |
 | 5 | Architecture Enforcement | P2 | 2 weeks | ❌ Not started |
 | 6 | Test-Aware Suggestions | P2 | 2 weeks | ❌ Not started |
 
@@ -493,4 +493,35 @@ src/core/confidence/
 - Source tracking: codebase matches, decision matches, pattern matches
 - Warning detection: security issues, deprecated patterns, complexity
 - Conflict detection: checks code against recorded architectural decisions
-- Weighted scoring: 50% codebase, 30% decisions, 20% patterns      
+- Weighted scoring: 50% codebase, 30% decisions, 20% patterns
+
+---
+
+## Phase 9: Change Intelligence Implementation (Completed)
+
+### Files Created
+```
+src/core/change-intelligence/
+├── index.ts                    # Barrel export
+├── change-intelligence.ts      # Main ChangeIntelligence orchestrator
+├── change-tracker.ts           # Git change tracking and querying
+├── bug-correlator.ts           # Bug correlation with changes
+└── fix-suggester.ts            # Fix suggestions based on history
+```
+
+### New MCP Tools
+| Tool | Description |
+|------|-------------|
+| `what_changed` | Query what changed (files, authors, line counts) |
+| `why_broke` | Diagnose why something broke |
+| `find_similar_bugs` | Find similar bugs from history with fixes |
+| `suggest_fix` | Get fix suggestions based on history and patterns |
+
+### Features Implemented
+- Change tracking from git history
+- Bug diagnosis: correlate errors with recent changes
+- Similar bug finder: learn from past bugs and fixes
+- Fix suggestions: pattern-based and history-based
+- Database tables: change_history, bug_history
+- Error pattern recognition (10+ common patterns)
+- Common fix patterns (10+ patterns with confidence scores)      

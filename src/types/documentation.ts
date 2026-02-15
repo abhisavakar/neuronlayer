@@ -367,3 +367,87 @@ export interface ConflictResult {
     severity: 'low' | 'medium' | 'high';
   }>;
 }
+
+// ============================================
+// Change Intelligence Types
+// ============================================
+
+export interface Change {
+  id: string;
+  file: string;
+  diff: string;
+  timestamp: Date;
+  author: string;
+  commitHash: string;
+  commitMessage: string;
+  linesAdded: number;
+  linesRemoved: number;
+  type: 'add' | 'modify' | 'delete' | 'rename';
+}
+
+export interface ChangeQueryResult {
+  period: string;
+  since: Date;
+  until: Date;
+  changes: Change[];
+  totalFiles: number;
+  totalLinesAdded: number;
+  totalLinesRemoved: number;
+  byAuthor: Record<string, number>;
+  byType: Record<string, number>;
+}
+
+export interface Bug {
+  id: string;
+  error: string;
+  stackTrace?: string;
+  file?: string;
+  line?: number;
+  timestamp: Date;
+  status: 'open' | 'fixed';
+  relatedChanges: string[];
+  fixedBy?: string;
+  fixedAt?: Date;
+}
+
+export interface PastBug {
+  id: string;
+  error: string;
+  cause?: string;
+  fix?: string;
+  fixDiff?: string;
+  file?: string;
+  date: Date;
+  similarity: number;
+}
+
+export interface Diagnosis {
+  likelyCause: Change | null;
+  confidence: number;
+  relatedChanges: Change[];
+  pastSimilarBugs: PastBug[];
+  suggestedFix: string | null;
+  reasoning: string;
+}
+
+export interface FixSuggestion {
+  confidence: number;
+  fix: string;
+  reason: string;
+  diff?: string;
+  pastFix?: {
+    date: Date;
+    file: string;
+    bugId?: string;
+  };
+  source: 'history' | 'pattern' | 'general';
+}
+
+export interface ChangeQueryOptions {
+  since?: string | Date;
+  until?: Date;
+  file?: string;
+  author?: string;
+  type?: 'add' | 'modify' | 'delete' | 'rename';
+  limit?: number;
+}
