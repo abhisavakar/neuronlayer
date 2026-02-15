@@ -224,6 +224,34 @@ export function initializeDatabase(dbPath: string): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_critical_context_type ON critical_context(type);
     CREATE INDEX IF NOT EXISTS idx_critical_context_created ON critical_context(created_at);
     CREATE INDEX IF NOT EXISTS idx_context_health_timestamp ON context_health_history(timestamp);
+
+    -- Phase 11: Test-Aware Suggestions tables
+    CREATE TABLE IF NOT EXISTS test_index (
+      id TEXT PRIMARY KEY,
+      file_path TEXT NOT NULL,
+      test_name TEXT NOT NULL,
+      describes TEXT,
+      covers_files TEXT,           -- JSON array
+      covers_functions TEXT,       -- JSON array
+      assertions TEXT,             -- JSON array
+      line_start INTEGER,
+      line_end INTEGER,
+      last_status TEXT,
+      last_run INTEGER,
+      indexed_at INTEGER DEFAULT (unixepoch()),
+      UNIQUE(file_path, test_name)
+    );
+
+    CREATE TABLE IF NOT EXISTS test_config (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      framework TEXT NOT NULL,
+      test_patterns TEXT,          -- JSON array of glob patterns
+      last_indexed INTEGER
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_test_index_file ON test_index(file_path);
+    CREATE INDEX IF NOT EXISTS idx_test_index_name ON test_index(test_name);
+    CREATE INDEX IF NOT EXISTS idx_test_covers_files ON test_index(covers_files);
   `);
 
   return db;

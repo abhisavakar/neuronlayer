@@ -18,9 +18,10 @@ import { ContextRotPrevention } from './context-rot/index.js';
 import { ConfidenceScorer } from './confidence/index.js';
 import { ChangeIntelligence } from './change-intelligence/index.js';
 import { ArchitectureEnforcement } from './architecture/index.js';
+import { TestAwareness } from './test-awareness/index.js';
 import { detectLanguage, getPreview, countLines } from '../utils/files.js';
 import type { MemoryLayerConfig, AssembledContext, Decision, ProjectSummary, SearchResult, CodeSymbol, SymbolKind, ActiveFeatureContext, HotContext } from '../types/index.js';
-import type { ArchitectureDoc, ComponentDoc, DailyChangelog, ChangelogOptions, ValidationResult, ActivityResult, UndocumentedItem, ContextHealth, CompactionResult, CompactionOptions, CriticalContext, DriftResult, ConfidenceResult, ConfidenceLevel, ConfidenceSources, ConflictResult, ChangeQueryResult, ChangeQueryOptions, Diagnosis, PastBug, FixSuggestion, Change, Pattern, PatternCategory, PatternValidationResult, ExistingFunction } from '../types/documentation.js';
+import type { ArchitectureDoc, ComponentDoc, DailyChangelog, ChangelogOptions, ValidationResult, ActivityResult, UndocumentedItem, ContextHealth, CompactionResult, CompactionOptions, CriticalContext, DriftResult, ConfidenceResult, ConfidenceLevel, ConfidenceSources, ConflictResult, ChangeQueryResult, ChangeQueryOptions, Diagnosis, PastBug, FixSuggestion, Change, Pattern, PatternCategory, PatternValidationResult, ExistingFunction, TestInfo, TestFramework, TestValidationResult, TestUpdate, TestCoverage } from '../types/documentation.js';
 import type Database from 'better-sqlite3';
 
 export class MemoryLayerEngine {
@@ -42,6 +43,7 @@ export class MemoryLayerEngine {
   private confidenceScorer: ConfidenceScorer;
   private changeIntelligence: ChangeIntelligence;
   private architectureEnforcement: ArchitectureEnforcement;
+  private testAwareness: TestAwareness;
   private initialized = false;
 
   constructor(config: MemoryLayerConfig) {
@@ -125,6 +127,13 @@ export class MemoryLayerEngine {
       this.indexer.getEmbeddingGenerator()
     );
 
+    // Phase 11: Initialize test awareness
+    this.testAwareness = new TestAwareness(
+      config.projectPath,
+      this.db,
+      this.tier2
+    );
+
     // Register this project
     const projectInfo = this.projectManager.registerProject(config.projectPath);
     this.projectManager.setActiveProject(projectInfo.id);
@@ -182,6 +191,12 @@ export class MemoryLayerEngine {
     const archResult = this.architectureEnforcement.initialize();
     if (archResult.patternsLearned > 0 || archResult.examplesAdded > 0) {
       console.error(`Architecture enforcement: ${archResult.patternsLearned} patterns learned, ${archResult.examplesAdded} examples added`);
+    }
+
+    // Initialize test awareness (index tests)
+    const testResult = this.testAwareness.initialize();
+    if (testResult.testsIndexed > 0) {
+      console.error(`Test awareness: ${testResult.testsIndexed} tests indexed (${testResult.framework})`);
     }
 
     this.initialized = true;
@@ -1084,6 +1099,83 @@ export class MemoryLayerEngine {
   // Format existing suggestions for display
   formatExistingSuggestions(suggestions: ExistingFunction[]): string {
     return ArchitectureEnforcement.formatSuggestions(suggestions);
+  }
+
+  // ========== Phase 11: Test-Aware Suggestions ==========
+
+  // Get tests related to a file or function
+  getRelatedTests(file: string, fn?: string): TestInfo[] {
+    return this.testAwareness.getRelatedTests(file, fn);
+  }
+
+  // Get tests for a specific file
+  getTestsForFile(file: string): TestInfo[] {
+    return this.testAwareness.getTestsForFile(file);
+  }
+
+  // Get all tests in the project
+  getAllTests(): TestInfo[] {
+    return this.testAwareness.getAllTests();
+  }
+
+  // Check if a code change would break tests
+  checkTests(code: string, file: string): TestValidationResult {
+    return this.testAwareness.checkTests(code, file);
+  }
+
+  // Suggest test updates for a change
+  suggestTestUpdate(change: string, failingTests?: string[]): TestUpdate[] {
+    return this.testAwareness.suggestTestUpdate(change, failingTests);
+  }
+
+  // Get test coverage for a file
+  getTestCoverage(file: string): TestCoverage {
+    return this.testAwareness.getCoverage(file);
+  }
+
+  // Get detected test framework
+  getTestFramework(): TestFramework {
+    return this.testAwareness.getFramework();
+  }
+
+  // Get total test count
+  getTestCount(): number {
+    return this.testAwareness.getTestCount();
+  }
+
+  // Generate test template for a function
+  generateTestTemplate(file: string, functionName: string): string {
+    return this.testAwareness.generateTestTemplate(file, functionName);
+  }
+
+  // Suggest new tests for uncovered functions
+  suggestNewTests(file: string): Array<{ function: string; template: string; priority: 'high' | 'medium' | 'low' }> {
+    return this.testAwareness.suggestNewTests(file);
+  }
+
+  // Refresh test index
+  refreshTestIndex(): { testsIndexed: number; framework: TestFramework } {
+    return this.testAwareness.refreshIndex();
+  }
+
+  // Format test validation result for display
+  formatTestValidationResult(result: TestValidationResult): string {
+    return this.testAwareness.formatValidationResult(result);
+  }
+
+  // Format test coverage for display
+  formatTestCoverage(coverage: TestCoverage): string {
+    return this.testAwareness.formatCoverage(coverage);
+  }
+
+  // Format test list for display
+  formatTestList(tests: TestInfo[]): string {
+    return this.testAwareness.formatTestList(tests);
+  }
+
+  // Format test updates for display
+  formatTestUpdates(updates: TestUpdate[]): string {
+    return this.testAwareness['testSuggester'].formatTestUpdates(updates);
   }
 
   shutdown(): void {

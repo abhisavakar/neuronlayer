@@ -820,6 +820,76 @@ export const toolDefinitions: ToolDefinition[] = [
       type: 'object',
       properties: {}
     }
+  },
+  // Phase 11: Test-Aware Suggestions tools
+  {
+    name: 'get_related_tests',
+    description: 'Get tests related to a file or function. Use this to understand test coverage before making changes.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          description: 'File path to find tests for'
+        },
+        function: {
+          type: 'string',
+          description: 'Function name to find tests for (optional)'
+        }
+      },
+      required: ['file']
+    }
+  },
+  {
+    name: 'check_tests',
+    description: 'Check if a code change would break tests. Returns predicted failures and suggested fixes.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        change: {
+          type: 'string',
+          description: 'The proposed code change'
+        },
+        file: {
+          type: 'string',
+          description: 'File being changed'
+        }
+      },
+      required: ['change', 'file']
+    }
+  },
+  {
+    name: 'suggest_test_update',
+    description: 'Get suggested test updates for a code change. Use this after check_tests shows failures.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        change: {
+          type: 'string',
+          description: 'The code change'
+        },
+        failing_tests: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Test IDs that would fail (optional, from check_tests)'
+        }
+      },
+      required: ['change']
+    }
+  },
+  {
+    name: 'get_test_coverage',
+    description: 'Get test coverage for a file. Shows which functions are covered and which need tests.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          description: 'File path to check coverage for'
+        }
+      },
+      required: ['file']
+    }
   }
 ];
 
@@ -2060,6 +2130,128 @@ export async function handleToolCall(
           by_purpose: stats.functions.byPurpose
         },
         message: `${stats.patterns.total} patterns learned, ${stats.functions.total} functions indexed`
+      };
+    }
+
+    // Phase 11: Test-Aware Suggestions tools
+    case 'get_related_tests': {
+      const file = args.file as string;
+      const fn = args.function as string | undefined;
+
+      const tests = engine.getRelatedTests(file, fn);
+
+      return {
+        file,
+        function: fn || null,
+        total: tests.length,
+        tests: tests.map(t => ({
+          id: t.id,
+          name: t.name,
+          file: t.file,
+          describes: t.describes,
+          line_start: t.lineStart,
+          line_end: t.lineEnd,
+          assertions_count: t.assertions.length,
+          covers_files: t.coversFiles,
+          covers_functions: t.coversFunctions,
+          last_status: t.lastStatus,
+          last_run: t.lastRun?.toISOString()
+        })),
+        formatted: engine.formatTestList(tests),
+        message: tests.length === 0
+          ? `No tests found for ${file}${fn ? ` function ${fn}` : ''}`
+          : `Found ${tests.length} test(s) related to ${file}${fn ? ` function ${fn}` : ''}`
+      };
+    }
+
+    case 'check_tests': {
+      const change = args.change as string;
+      const file = args.file as string;
+
+      const result = engine.checkTests(change, file);
+
+      return {
+        safe: result.safe,
+        coverage_percent: result.coveragePercent,
+        related_tests: result.relatedTests.length,
+        would_pass: result.wouldPass.map(t => ({
+          id: t.id,
+          name: t.name,
+          file: t.file
+        })),
+        would_fail: result.wouldFail.map(f => ({
+          test_id: f.test.id,
+          test_name: f.test.name,
+          test_file: f.test.file,
+          reason: f.reason,
+          confidence: f.confidence,
+          suggested_fix: f.suggestedFix,
+          assertion: f.assertion ? {
+            type: f.assertion.type,
+            code: f.assertion.code,
+            line: f.assertion.line
+          } : null
+        })),
+        uncertain: result.uncertain.map(t => ({
+          id: t.id,
+          name: t.name,
+          file: t.file
+        })),
+        suggested_updates: result.suggestedTestUpdates.map(u => ({
+          file: u.file,
+          test_name: u.testName,
+          line: u.line,
+          before: u.before,
+          after: u.after,
+          reason: u.reason
+        })),
+        formatted: engine.formatTestValidationResult(result),
+        message: result.safe
+          ? `Change is safe - ${result.coveragePercent}% test coverage, ${result.wouldPass.length} tests would pass`
+          : `Change may break ${result.wouldFail.length} test(s) - review suggested updates`
+      };
+    }
+
+    case 'suggest_test_update': {
+      const change = args.change as string;
+      const failingTests = args.failing_tests as string[] | undefined;
+
+      const updates = engine.suggestTestUpdate(change, failingTests);
+
+      return {
+        total: updates.length,
+        updates: updates.map(u => ({
+          file: u.file,
+          test_name: u.testName,
+          line: u.line,
+          before: u.before,
+          after: u.after,
+          reason: u.reason
+        })),
+        formatted: engine.formatTestUpdates(updates),
+        message: updates.length === 0
+          ? 'No test updates needed'
+          : `Generated ${updates.length} suggested test update(s)`
+      };
+    }
+
+    case 'get_test_coverage': {
+      const file = args.file as string;
+
+      const coverage = engine.getTestCoverage(file);
+
+      return {
+        file: coverage.file,
+        total_tests: coverage.totalTests,
+        coverage_percent: coverage.coveragePercent,
+        covered_functions: coverage.coveredFunctions,
+        uncovered_functions: coverage.uncoveredFunctions,
+        formatted: engine.formatTestCoverage(coverage),
+        message: coverage.coveragePercent === 100
+          ? `Full test coverage for ${file}`
+          : coverage.uncoveredFunctions.length > 0
+            ? `${coverage.coveragePercent}% coverage - ${coverage.uncoveredFunctions.length} function(s) need tests`
+            : `${coverage.totalTests} test(s) cover ${file}`
       };
     }
 

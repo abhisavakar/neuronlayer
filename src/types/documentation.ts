@@ -536,3 +536,84 @@ export interface FunctionIndex {
   returnType?: string;
   docstring?: string;
 }
+
+// ============================================
+// Test-Aware Suggestions Types (Phase 11)
+// ============================================
+
+export type TestFramework = 'jest' | 'mocha' | 'vitest' | 'pytest' | 'unittest' | 'go' | 'unknown';
+
+export interface TestInfo {
+  id: string;
+  file: string;
+  name: string;
+  describes: string;                // Parent describe block
+  coversFiles: string[];            // Files this test covers (via imports)
+  coversFunctions: string[];        // Functions this test calls
+  assertions: Assertion[];
+  lastRun?: Date;
+  lastStatus?: 'pass' | 'fail' | 'skip';
+  lineStart: number;
+  lineEnd: number;
+}
+
+export interface Assertion {
+  type: 'equality' | 'truthiness' | 'error' | 'mock' | 'snapshot' | 'other';
+  subject: string;                  // What's being tested
+  expected?: string;                // Expected value (if extractable)
+  code: string;                     // Actual assertion code
+  line: number;
+}
+
+export interface TestIndex {
+  framework: TestFramework;
+  tests: TestInfo[];
+  fileToCoverage: Map<string, string[]>;      // file -> test IDs
+  functionToCoverage: Map<string, string[]>;  // function -> test IDs
+  lastIndexed: Date;
+}
+
+export interface ChangeAnalysis {
+  file: string;
+  functions: string[];
+  type: 'refactor' | 'add' | 'delete' | 'modify';
+  affectedTests: TestInfo[];
+  testCoverage: number;             // % of change covered by tests
+  risk: 'low' | 'medium' | 'high';
+  reasoning: string;
+}
+
+export interface TestValidationResult {
+  safe: boolean;
+  relatedTests: TestInfo[];
+  wouldPass: TestInfo[];
+  wouldFail: PredictedFailure[];
+  uncertain: TestInfo[];
+  suggestedTestUpdates: TestUpdate[];
+  coveragePercent: number;
+}
+
+export interface PredictedFailure {
+  test: TestInfo;
+  assertion?: Assertion;
+  reason: string;
+  confidence: number;               // 0-100
+  suggestedFix?: string;
+}
+
+export interface TestUpdate {
+  file: string;
+  testName: string;
+  line: number;
+  before: string;
+  after: string;
+  reason: string;
+}
+
+export interface TestCoverage {
+  file: string;
+  totalTests: number;
+  coveredFunctions: string[];
+  uncoveredFunctions: string[];
+  coveragePercent: number;
+}
