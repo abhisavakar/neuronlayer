@@ -15,17 +15,21 @@ import {
   loadConfig,
   getApiKey,
   getBaseURL,
-  getConfigDir
+  getConfigDir,
+  getProjectDataDir
 } from './config/index.js';
 import {
   createReadlineInterface,
   readlineGenerator,
   write,
   printBanner,
+  printStatus,
+  printCost,
   Spinner,
   formatToolCall,
   formatToolResult,
-  formatMarkdown
+  formatMarkdown,
+  c
 } from './ui/cli.js';
 
 async function main(): Promise<void> {
@@ -49,24 +53,24 @@ async function main(): Promise<void> {
   // Resolve project path
   const projectPath = resolve(args.projectPath);
 
-  // Determine model and provider
-  const modelString = args.model || config.defaultModel;
-  const { provider: providerName, model } = parseModelString(modelString);
+  // Hardcoded for testing - Azure OpenAI with Kimi
+  let effectiveProvider = args.provider || 'openai';
+  process.env.OPENAI_BASE_URL = process.env.OPENAI_BASE_URL || 'https://swedencentral.api.cognitive.microsoft.com/openai/v1';
 
-  // Get API key
-  let apiKey: string | undefined = args.apiKey;
-  if (!apiKey) {
-    if (args.provider) {
-      apiKey = getApiKey(args.provider as 'anthropic' | 'openrouter' | 'openai') ?? undefined;
-    } else {
-      apiKey = getApiKey(providerName as 'anthropic' | 'openrouter' | 'openai') ?? undefined;
-    }
-  }
+  // Determine model and provider - hardcoded for testing
+  const model = args.model || 'Kimi-K2.5';
+  const providerName = 'openai';
 
-  if (!apiKey && providerName !== 'local') {
-    console.error(`\n❌ No API key found for ${providerName}`);
+  // Use detected provider or fall back to model string provider
+  const finalProvider = effectiveProvider || providerName;
+
+  // Get API key - hardcoded for testing
+  let apiKey: string | undefined = args.apiKey || '91hH1JEzd1G83v4vgKHDjsAEsOsSl0fxmE7eDv7vqNS7Lvdc2vo3JQQJ99CBACfhMk5XJ3w3AAAAACOG6DCi';
+
+  if (!apiKey && finalProvider !== 'local') {
+    console.error(`\n❌ No API key found for ${finalProvider}`);
     console.error(`\nSet it via:`);
-    console.error(`  - Environment variable: ${providerName.toUpperCase()}_API_KEY`);
+    console.error(`  - Environment variable: ${finalProvider.toUpperCase()}_API_KEY`);
     console.error(`  - Command line: --api-key <key>`);
     console.error(`  - Config file: ~/.memcode/config.json\n`);
     process.exit(1);
@@ -75,9 +79,9 @@ async function main(): Promise<void> {
   // Print banner
   printBanner();
 
-  // Create MemoryLayer engine config
+  // Create MemoryLayer engine config with project-specific data directory
   const engineConfig = getDefaultConfig(projectPath);
-  engineConfig.dataDir = getConfigDir();
+  engineConfig.dataDir = getProjectDataDir(projectPath);
 
   // Initialize MemoryLayer engine
   const spinner = new Spinner('Initializing MemoryLayer...');
@@ -94,7 +98,7 @@ async function main(): Promise<void> {
   }
 
   // Create LLM provider
-  const selectedProvider = (args.provider || providerName) as 'anthropic' | 'openrouter' | 'openai' | 'local';
+  const selectedProvider = finalProvider as 'anthropic' | 'openrouter' | 'openai' | 'local';
   const baseURL = getBaseURL(selectedProvider as 'anthropic' | 'openrouter' | 'openai');
 
   const providerConfig: LLMProviderConfig = {

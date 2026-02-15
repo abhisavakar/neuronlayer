@@ -1,6 +1,7 @@
 // Conversation management for memcode agent
 
 import type { Message, ToolCall, ToolResult } from '../llm/types.js';
+import { SYSTEM_PROMPT } from '../prompts/system.js';
 
 export interface ConversationOptions {
   maxMessages?: number;
@@ -14,35 +15,7 @@ export class Conversation {
 
   constructor(options: ConversationOptions = {}) {
     this.maxMessages = options.maxMessages || 100;
-    this.systemPrompt = options.systemPrompt || this.getDefaultSystemPrompt();
-  }
-
-  private getDefaultSystemPrompt(): string {
-    return `You are memcode, an intelligent coding assistant powered by MemoryLayer.
-
-You have access to powerful memory and code intelligence tools that let you:
-- Search and understand the codebase semantically
-- Track and recall architectural decisions
-- Learn patterns and enforce consistency
-- Predict relevant files and context
-- Diagnose bugs and suggest fixes
-- Generate and validate documentation
-
-Key capabilities:
-1. **Persistent Memory**: Decisions, patterns, and context persist across sessions
-2. **Semantic Understanding**: 384-dimensional embeddings for accurate code search
-3. **Change Intelligence**: Track what changed, diagnose why things broke
-4. **Architecture Enforcement**: Learn and validate patterns
-5. **Test Awareness**: Predict test failures, suggest updates
-
-When responding:
-- Use tools to gather context before answering
-- Be concise but thorough
-- Reference specific files and line numbers
-- Record important decisions for future sessions
-- Validate code against established patterns
-
-Always think step by step and use the available tools effectively.`;
+    this.systemPrompt = options.systemPrompt || SYSTEM_PROMPT;
   }
 
   getSystemPrompt(): string {

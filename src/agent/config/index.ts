@@ -49,6 +49,24 @@ export function getConfigDir(): string {
   return dir;
 }
 
+export function getProjectDataDir(projectPath: string): string {
+  // Create a project-specific data directory using a simple hash of the project path
+  // Simple hash function to avoid crypto import issues
+  let hash = 0;
+  for (let i = 0; i < projectPath.length; i++) {
+    const char = projectPath.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  const hashStr = Math.abs(hash).toString(16).slice(0, 8);
+  const projectName = projectPath.split(/[/\\]/).pop() || 'unknown';
+  const dir = join(homedir(), '.memcode', 'projects', `${projectName}-${hashStr}`);
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+  return dir;
+}
+
 export function getConfigPath(): string {
   return join(getConfigDir(), 'config.json');
 }

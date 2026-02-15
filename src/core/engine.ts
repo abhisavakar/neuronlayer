@@ -143,17 +143,25 @@ export class MemoryLayerEngine {
 
   private setupIndexerEvents(): void {
     this.indexer.on('indexingStarted', () => {
-      console.error('Indexing started...');
+      // Silent start - only show if files need indexing
     });
 
     this.indexer.on('progress', (progress) => {
-      if (progress.indexed % 10 === 0 || progress.indexed === progress.total) {
-        console.error(`Indexing progress: ${progress.indexed}/${progress.total}`);
+      // Only show progress when actually indexing files
+      if (progress.indexed === 1) {
+        console.error('Indexing new/changed files...');
+      }
+      if (progress.indexed % 10 === 0) {
+        console.error(`  ${progress.indexed} files indexed`);
       }
     });
 
-    this.indexer.on('indexingComplete', (stats) => {
-      console.error(`Indexing complete: ${stats.indexed} files indexed`);
+    this.indexer.on('indexingComplete', (stats: { total: number; indexed: number; skipped?: number }) => {
+      if (stats.indexed > 0) {
+        console.error(`Indexing complete: ${stats.indexed} files indexed`);
+      } else {
+        console.error(`Index up to date (${stats.total} files)`);
+      }
       this.updateProjectSummary();
       this.updateProjectStats();
       // Extract decisions from git and comments

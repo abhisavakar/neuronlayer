@@ -6,6 +6,10 @@ import { Conversation } from './conversation.js';
 import { ToolExecutor } from '../tools/executor.js';
 import { SessionManager } from '../session/manager.js';
 import { estimateCost } from '../llm/index.js';
+import { printStatus, printCost, printHelp, printError, c } from '../ui/cli.js';
+import { getSystemPromptWithEnv } from '../prompts/system.js';
+import { existsSync } from 'fs';
+import { join } from 'path';
 
 export interface OrchestratorConfig {
   engine: MemoryLayerEngine;
@@ -44,7 +48,17 @@ export class Orchestrator {
     this.toolExecutor = new ToolExecutor(config.engine, {
       projectPath: config.projectPath
     });
-    this.conversation = new Conversation();
+
+    // Build system prompt with environment context
+    const isGitRepo = existsSync(join(config.projectPath, '.git'));
+    const systemPrompt = getSystemPromptWithEnv({
+      projectPath: config.projectPath,
+      model: config.provider.getCurrentModel(),
+      platform: process.platform,
+      isGitRepo
+    });
+
+    this.conversation = new Conversation({ systemPrompt });
     this.sessionManager = new SessionManager(config.dataDir);
 
     // Start a new session
@@ -101,8 +115,14 @@ export class Orchestrator {
 
       // If no tool calls, we're done
       if (!response.toolCalls || response.toolCalls.length === 0) {
-        finalContent = response.content;
-        this.conversation.addAssistantMessage(response.content);
+        // If content is empty after tool calls, provide a default completion message
+        finalContent = response.content || (toolsUsed.length > 0 ? 'Done.' : '');
+        this.conversation.addAssistantMessage(finalContent);
+
+        // Output the final content if streaming (since it might not have been streamed)
+        if (this.config.streamOutput && finalContent && !response.content) {
+          this.config.onText?.(finalContent);
+        }
         break;
       }
 
@@ -223,11 +243,11 @@ export class Orchestrator {
     readline: AsyncGenerator<string, void, unknown>,
     write: (text: string) => void
   ): Promise<void> {
-    write('\n🧠 memcode - AI coding assistant powered by MemoryLayer\n');
-    write(`📁 Project: ${this.config.projectPath}\n`);
-    write(`🤖 Model: ${this.provider.getCurrentModel()}\n`);
-    write(`🔧 Tools: ${this.toolExecutor.getToolCount()} available\n`);
-    write('\nType your message or use /help for commands.\n\n');
+    printStatus(
+      this.config.projectPath,
+      this.provider.getCurrentModel(),
+      this.toolExecutor.getToolCount()
+    );
 
     for await (const input of readline) {
       const trimmed = input.trim();
@@ -252,14 +272,14 @@ export class Orchestrator {
         }
 
         // Show stats
-        write(`\n\n📊 ${result.inputTokens + result.outputTokens} tokens`);
-        if (result.toolsUsed.length > 0) {
-          write(` | 🔧 ${result.toolsUsed.length} tools`);
-        }
-        write(` | 💰 $${result.estimatedCost.toFixed(4)}\n\n`);
+        printCost(
+          result.inputTokens + result.outputTokens,
+          result.toolsUsed.length,
+          result.estimatedCost
+        );
 
       } catch (error) {
-        write(`\n❌ Error: ${error instanceof Error ? error.message : String(error)}\n\n`);
+        printError(error instanceof Error ? error.message : String(error));
       }
     }
 
@@ -277,47 +297,35 @@ export class Orchestrator {
 
     switch (cmd) {
       case 'help':
-        write('\n📚 Commands:\n');
-        write('  /help          - Show this help\n');
-        write('  /model [name]  - Show or switch model\n');
-        write('  /models        - List available models\n');
-        write('  /context       - Show current context\n');
-        write('  /feature [name]- Set feature context\n');
-        write('  /clear         - Clear conversation\n');
-        write('  /save          - Save session\n');
-        write('  /sessions      - List recent sessions\n');
-        write('  /continue [id] - Continue a session\n');
-        write('  /cost          - Show cost summary\n');
-        write('  /exit          - Exit memcode\n');
-        write('\n');
+        printHelp();
         break;
 
       case 'model':
         if (args[0]) {
           this.provider.setModel(args[0]);
           this.sessionManager.setModel(args[0]);
-          write(`\n✅ Model switched to: ${args[0]}\n\n`);
+          write(`\n${c.green}✓${c.reset} Model switched to: ${c.cyan}${args[0]}${c.reset}\n`);
         } else {
-          write(`\n🤖 Current model: ${this.provider.getCurrentModel()}\n\n`);
+          write(`\n${c.dim}Model:${c.reset} ${c.cyan}${this.provider.getCurrentModel()}${c.reset}\n`);
         }
         break;
 
       case 'models':
-        write('\n📋 Available models:\n');
+        write(`\n${c.bold}Available models${c.reset}\n`);
         for (const model of this.provider.getModels()) {
-          const current = model === this.provider.getCurrentModel() ? ' (current)' : '';
-          write(`  ${model}${current}\n`);
+          const isCurrent = model === this.provider.getCurrentModel();
+          write(`  ${isCurrent ? c.cyan + '●' : c.dim + '○'} ${model}${isCurrent ? ' (current)' : ''}${c.reset}\n`);
         }
         write('\n');
         break;
 
       case 'context':
         const context = this.engine.getHotContext();
-        write('\n📁 Active Context:\n');
-        write(`  Summary: ${context.summary || 'None'}\n`);
-        write(`  Files: ${context.files.length}\n`);
-        write(`  Recent changes: ${context.changes.length}\n`);
-        write(`  Recent queries: ${context.queries.length}\n\n`);
+        write(`\n${c.bold}Active Context${c.reset}\n`);
+        write(`  ${c.dim}Summary:${c.reset} ${context.summary || 'None'}\n`);
+        write(`  ${c.dim}Files:${c.reset} ${context.files.length}\n`);
+        write(`  ${c.dim}Changes:${c.reset} ${context.changes.length}\n`);
+        write(`  ${c.dim}Queries:${c.reset} ${context.queries.length}\n`);
         break;
 
       case 'feature':

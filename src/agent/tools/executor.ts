@@ -355,27 +355,32 @@ export class ToolExecutor {
         const dirPath = this.resolvePath(args.path as string || '.');
         const recursive = args.recursive as boolean || false;
 
-        const cmd = recursive
-          ? `find "${dirPath}" -type f -not -path '*/node_modules/*' -not -path '*/.git/*' | head -100`
-          : `ls -la "${dirPath}"`;
+        // Cross-platform file listing using Node.js
+        const { readdirSync, statSync } = await import('fs');
 
-        try {
-          const output = execSync(cmd, {
-            cwd: this.config.projectPath,
-            timeout: this.config.timeout,
-            encoding: 'utf-8'
-          });
-          return { files: output.trim().split('\n') };
-        } catch {
-          // Fallback for Windows
-          const { readdirSync, statSync } = await import('fs');
-          const entries = readdirSync(dirPath);
-          const files = entries.map(e => {
-            const stat = statSync(join(dirPath, e));
-            return `${stat.isDirectory() ? 'd' : '-'} ${e}`;
-          });
-          return { files };
-        }
+        const listDir = (dir: string, depth: number = 0): string[] => {
+          const results: string[] = [];
+          try {
+            const entries = readdirSync(dir);
+            for (const entry of entries) {
+              if (entry === 'node_modules' || entry === '.git') continue;
+              const fullPath = join(dir, entry);
+              try {
+                const stat = statSync(fullPath);
+                const prefix = stat.isDirectory() ? 'd' : '-';
+                results.push(`${prefix} ${entry}`);
+                if (recursive && stat.isDirectory() && depth < 5 && results.length < 100) {
+                  const subFiles = listDir(fullPath, depth + 1);
+                  results.push(...subFiles.map(f => `  ${f}`));
+                }
+              } catch { /* skip inaccessible */ }
+              if (results.length >= 100) break;
+            }
+          } catch { /* skip inaccessible dirs */ }
+          return results;
+        };
+
+        return { files: listDir(dirPath) };
       }
 
       case 'delete_file': {
