@@ -28,7 +28,9 @@
     "benchmark:analyze": "npm run build:benchmark && node dist/benchmark/analyze-results.js",
     "benchmark:opencode": "npm run build:all && node dist/benchmark/opencode-benchmark.js",
     "benchmark:opencode:quick": "npm run build:all && node dist/benchmark/opencode-benchmark.js --iterations 1",
-    "benchmark:opencode:full": "npm run build:all && node dist/benchmark/opencode-benchmark.js --iterations 5"
+    "benchmark:opencode:full": "npm run build:all && node dist/benchmark/opencode-benchmark.js --iterations 5",
+    "benchmark:memcode": "npm run build:all && node dist/benchmark/memcode-vs-opencode.js",
+    "benchmark:memcode:quick": "npm run build:all && node dist/benchmark/memcode-vs-opencode.js --iterations 1"
   },
   "keywords": [
     "mcp",

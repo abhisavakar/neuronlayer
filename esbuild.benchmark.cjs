@@ -23,9 +23,11 @@ async function buildBenchmarks() {
       'tests/benchmark/analyze-results.ts',
       'tests/benchmark/mcp-client.ts',
       'tests/benchmark/opencode-client.ts',
+      'tests/benchmark/opencode-benchmark.ts',
       'tests/benchmark/test-scenarios.ts',
       'tests/benchmark/project-downloader.ts',
-      'tests/benchmark/real-test-harness.ts'
+      'tests/benchmark/real-test-harness.ts',
+      'tests/benchmark/memcode-vs-opencode.ts'
     ],
     bundle: true,
     platform: 'node',
