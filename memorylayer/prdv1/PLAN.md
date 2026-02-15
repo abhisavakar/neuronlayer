@@ -18,11 +18,9 @@
 | Confidence Scoring | P1 | ✅ Complete |
 | Change Intelligence | P1 | ✅ Complete |
 | Architecture Enforcement | P2 | ✅ Complete |
+| Test-Aware Suggestions | P2 | ✅ Complete |
 
-### Not Implemented
-| Feature | Priority | Effort | Status |
-|---------|----------|--------|--------|
-| Test-Aware Suggestions | P2 | 2 weeks | ❌ Not started |
+### All Phases Complete! 🎉
 
 ---
 
@@ -458,14 +456,16 @@ export class MemoryLayerEngine {
 
 ---
 
-## Future Phases
+## All Phases
 
 | Phase | Feature | Priority | Effort | Status |
 |-------|---------|----------|--------|--------|
+| 1 | Living Documentation | P0 | 2 weeks | ✅ Complete |
+| 2 | Context Rot Prevention | P0 | 1 week | ✅ Complete |
 | 3 | Confidence Scoring | P1 | 1 week | ✅ Complete |
 | 4 | Change Intelligence | P1 | 1 week | ✅ Complete |
 | 5 | Architecture Enforcement | P2 | 2 weeks | ✅ Complete |
-| 6 | Test-Aware Suggestions | P2 | 2 weeks | ❌ Not started |
+| 6 | Test-Aware Suggestions | P2 | 2 weeks | ✅ Complete |
 
 ---
 
@@ -600,5 +600,147 @@ CREATE INDEX IF NOT EXISTS idx_patterns_name ON patterns(name);
 
 
 
-Resume this session with:                                                                                                    
-claude --resume 6e65a740-e083-44fd-a671-e0ca9a6869d3  
+---
+
+## Phase 11: Test-Aware Suggestions Implementation (Completed)
+
+### Files Created
+```
+src/core/test-awareness/
+├── index.ts                    # Barrel export
+├── test-awareness.ts           # Main TestAwareness orchestrator
+├── test-indexer.ts             # Test discovery and database indexing
+├── test-parser.ts              # Framework-specific test parsing
+├── change-validator.ts         # Change impact analysis and failure prediction
+└── test-suggester.ts           # Test update suggestions and coverage
+```
+
+### New MCP Tools
+| Tool | Description |
+|------|-------------|
+| `get_related_tests` | Get tests related to a file or function |
+| `check_tests` | Check if a code change would break tests |
+| `suggest_test_update` | Get suggested test updates for a code change |
+| `get_test_coverage` | Get test coverage for a file |
+
+### Features Implemented
+- Multi-framework test parsing (Jest, Mocha, Vitest, pytest, unittest, Go)
+- Automatic framework detection from package.json and config files
+- Test discovery using glob patterns
+- Test indexing with file/function coverage mapping
+- Change impact analysis with risk levels (low, medium, high)
+- Test failure prediction with confidence scores
+- Test update suggestions for breaking changes
+- Test template generation for uncovered functions
+- Coverage reporting per file
+
+### Database Tables Added
+```sql
+CREATE TABLE IF NOT EXISTS test_index (
+  id TEXT PRIMARY KEY,
+  file_path TEXT NOT NULL,
+  test_name TEXT NOT NULL,
+  describes TEXT,
+  covers_files TEXT,           -- JSON array
+  covers_functions TEXT,       -- JSON array
+  assertions TEXT,             -- JSON array
+  line_start INTEGER,
+  line_end INTEGER,
+  last_status TEXT,
+  last_run INTEGER,
+  indexed_at INTEGER DEFAULT (unixepoch()),
+  UNIQUE(file_path, test_name)
+);
+
+CREATE TABLE IF NOT EXISTS test_config (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  framework TEXT NOT NULL,
+  test_patterns TEXT,          -- JSON array of glob patterns
+  last_indexed INTEGER
+);
+```
+
+### Type Definitions Added
+```typescript
+type TestFramework = 'jest' | 'mocha' | 'vitest' | 'pytest' | 'unittest' | 'go' | 'unknown';
+
+interface TestInfo {
+  id: string;
+  file: string;
+  name: string;
+  describes: string;
+  coversFiles: string[];
+  coversFunctions: string[];
+  assertions: Assertion[];
+  lastRun?: Date;
+  lastStatus?: 'pass' | 'fail' | 'skip';
+  lineStart: number;
+  lineEnd: number;
+}
+
+interface Assertion {
+  type: 'equality' | 'truthiness' | 'error' | 'mock' | 'snapshot' | 'other';
+  subject: string;
+  expected?: string;
+  code: string;
+  line: number;
+}
+
+interface TestValidationResult {
+  safe: boolean;
+  relatedTests: TestInfo[];
+  wouldPass: TestInfo[];
+  wouldFail: PredictedFailure[];
+  uncertain: TestInfo[];
+  suggestedTestUpdates: TestUpdate[];
+  coveragePercent: number;
+}
+
+interface PredictedFailure {
+  test: TestInfo;
+  assertion?: Assertion;
+  reason: string;
+  confidence: number;
+  suggestedFix?: string;
+}
+
+interface TestCoverage {
+  file: string;
+  totalTests: number;
+  coveredFunctions: string[];
+  uncoveredFunctions: string[];
+  coveragePercent: number;
+}
+```
+
+### Test File Patterns Supported
+```typescript
+const TEST_PATTERNS = {
+  jest: ['**/*.test.{js,ts,jsx,tsx}', '**/*.spec.{js,ts,jsx,tsx}', '**/__tests__/**/*.{js,ts,jsx,tsx}'],
+  mocha: ['**/*.test.{js,ts}', '**/*.spec.{js,ts}', 'test/**/*.{js,ts}'],
+  vitest: ['**/*.test.{js,ts,jsx,tsx}', '**/*.spec.{js,ts,jsx,tsx}'],
+  pytest: ['**/test_*.py', '**/*_test.py', '**/tests/**/*.py'],
+  go: ['**/*_test.go'],
+};
+```
+
+### Key Design Decisions
+- No AI required for core indexing (AST/regex parsing)
+- AI only used for optional test generation
+- Incremental indexing support
+- Framework auto-detection
+
+---
+
+## PRD v1 Complete! 🎉
+
+All 6 phases have been implemented:
+1. Living Documentation
+2. Context Rot Prevention
+3. Confidence Scoring
+4. Change Intelligence
+5. Architecture Enforcement
+6. Test-Aware Suggestions
+
+Total MCP Tools: 25+
+Total Database Tables: 15+  
