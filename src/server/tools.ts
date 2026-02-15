@@ -693,6 +693,133 @@ export const toolDefinitions: ToolDefinition[] = [
       },
       required: ['error']
     }
+  },
+  // Phase 10: Architecture Enforcement tools
+  {
+    name: 'validate_pattern',
+    description: 'Validate code against established project patterns. Returns a score, violations, and suggestions for improvement.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        code: {
+          type: 'string',
+          description: 'The code to validate against patterns'
+        },
+        type: {
+          type: 'string',
+          enum: ['error_handling', 'api_call', 'component', 'state_management', 'data_fetching', 'authentication', 'validation', 'logging', 'custom', 'auto'],
+          description: 'Type of pattern to validate against (default: auto-detect)'
+        }
+      },
+      required: ['code']
+    }
+  },
+  {
+    name: 'suggest_existing',
+    description: 'Find existing functions that match your intent. Prevents creating duplicate functionality.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        intent: {
+          type: 'string',
+          description: 'What you are trying to do (e.g., "validate email", "format date", "fetch user data")'
+        },
+        limit: {
+          type: 'number',
+          description: 'Maximum number of suggestions (default: 5)'
+        }
+      },
+      required: ['intent']
+    }
+  },
+  {
+    name: 'learn_pattern',
+    description: 'Teach a new pattern to the system. The pattern will be stored and used for future validations.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        code: {
+          type: 'string',
+          description: 'Example code that demonstrates the pattern'
+        },
+        name: {
+          type: 'string',
+          description: 'Name for this pattern (e.g., "API Error Handler", "Form Validation")'
+        },
+        description: {
+          type: 'string',
+          description: 'Description of when and how to use this pattern'
+        },
+        category: {
+          type: 'string',
+          enum: ['error_handling', 'api_call', 'component', 'state_management', 'data_fetching', 'authentication', 'validation', 'logging', 'custom'],
+          description: 'Category for this pattern (auto-detected if not provided)'
+        }
+      },
+      required: ['code', 'name']
+    }
+  },
+  {
+    name: 'list_patterns',
+    description: 'List all learned patterns in the project. Can filter by category.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        category: {
+          type: 'string',
+          enum: ['error_handling', 'api_call', 'component', 'state_management', 'data_fetching', 'authentication', 'validation', 'logging', 'custom'],
+          description: 'Filter by pattern category (optional)'
+        }
+      }
+    }
+  },
+  {
+    name: 'get_pattern',
+    description: 'Get details of a specific pattern including examples, anti-patterns, and rules.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: {
+          type: 'string',
+          description: 'Pattern ID to retrieve'
+        }
+      },
+      required: ['id']
+    }
+  },
+  {
+    name: 'add_pattern_example',
+    description: 'Add an example or anti-pattern to an existing pattern.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        pattern_id: {
+          type: 'string',
+          description: 'ID of the pattern to add to'
+        },
+        code: {
+          type: 'string',
+          description: 'Example code'
+        },
+        explanation: {
+          type: 'string',
+          description: 'Explanation of this example'
+        },
+        is_anti_pattern: {
+          type: 'boolean',
+          description: 'If true, marks this as what NOT to do (default: false)'
+        }
+      },
+      required: ['pattern_id', 'code', 'explanation']
+    }
+  },
+  {
+    name: 'get_architecture_stats',
+    description: 'Get statistics about patterns and functions in the codebase.',
+    inputSchema: {
+      type: 'object',
+      properties: {}
+    }
   }
 ];
 
@@ -1755,6 +1882,184 @@ export async function handleToolCall(
         message: suggestions.length === 0
           ? 'No fix suggestions available'
           : `Found ${suggestions.length} fix suggestion(s)`
+      };
+    }
+
+    // Phase 10: Architecture Enforcement tools
+    case 'validate_pattern': {
+      const code = args.code as string;
+      const type = args.type as string | undefined;
+
+      const result = engine.validatePattern(code, type);
+
+      return {
+        valid: result.valid,
+        score: result.score,
+        matched_pattern: result.matchedPattern,
+        violations: result.violations.map(v => ({
+          rule: v.rule,
+          message: v.message,
+          severity: v.severity,
+          suggestion: v.suggestion
+        })),
+        suggestions: result.suggestions.map(s => ({
+          description: s.description,
+          code: s.code,
+          priority: s.priority
+        })),
+        existing_alternatives: result.existingAlternatives.map(a => ({
+          name: a.name,
+          file: a.file,
+          line: a.line,
+          signature: a.signature,
+          similarity: a.similarity
+        })),
+        formatted: engine.formatValidationResult(result),
+        message: result.valid
+          ? `Pattern validation passed (score: ${result.score}/100)`
+          : `Pattern validation: ${result.violations.length} issue(s) found (score: ${result.score}/100)`
+      };
+    }
+
+    case 'suggest_existing': {
+      const intent = args.intent as string;
+      const limit = args.limit as number | undefined;
+
+      const suggestions = engine.suggestExisting(intent, limit);
+
+      return {
+        total: suggestions.length,
+        suggestions: suggestions.map(s => ({
+          name: s.name,
+          file: s.file,
+          line: s.line,
+          signature: s.signature,
+          description: s.description,
+          usage_count: s.usageCount,
+          purpose: s.purpose,
+          similarity: s.similarity
+        })),
+        formatted: engine.formatExistingSuggestions(suggestions),
+        message: suggestions.length === 0
+          ? 'No existing functions found for this intent - this might be a new use case'
+          : `Found ${suggestions.length} existing function(s) that might help`
+      };
+    }
+
+    case 'learn_pattern': {
+      const code = args.code as string;
+      const name = args.name as string;
+      const description = args.description as string | undefined;
+      const category = args.category as string | undefined;
+
+      const result = engine.learnPattern(code, name, description, category);
+
+      return {
+        success: result.success,
+        pattern_id: result.patternId,
+        message: result.message
+      };
+    }
+
+    case 'list_patterns': {
+      const category = args.category as string | undefined;
+
+      const patterns = engine.listPatterns(category);
+
+      return {
+        total: patterns.length,
+        patterns: patterns.map(p => ({
+          id: p.id,
+          name: p.name,
+          category: p.category,
+          description: p.description,
+          examples_count: p.examples.length,
+          anti_patterns_count: p.antiPatterns.length,
+          rules_count: p.rules.length,
+          usage_count: p.usageCount,
+          created_at: p.createdAt.toISOString()
+        })),
+        formatted: engine.formatPatternList(patterns),
+        message: patterns.length === 0
+          ? 'No patterns found. Use learn_pattern to teach patterns.'
+          : `Found ${patterns.length} pattern(s)`
+      };
+    }
+
+    case 'get_pattern': {
+      const id = args.id as string;
+
+      const pattern = engine.getPattern(id);
+
+      if (!pattern) {
+        return {
+          error: `Pattern not found: ${id}`,
+          message: 'Use list_patterns to see available patterns'
+        };
+      }
+
+      return {
+        id: pattern.id,
+        name: pattern.name,
+        category: pattern.category,
+        description: pattern.description,
+        examples: pattern.examples.map(e => ({
+          code: e.code,
+          explanation: e.explanation,
+          file: e.file
+        })),
+        anti_patterns: pattern.antiPatterns.map(a => ({
+          code: a.code,
+          explanation: a.explanation
+        })),
+        rules: pattern.rules.map(r => ({
+          rule: r.rule,
+          severity: r.severity
+        })),
+        usage_count: pattern.usageCount,
+        created_at: pattern.createdAt.toISOString()
+      };
+    }
+
+    case 'add_pattern_example': {
+      const patternId = args.pattern_id as string;
+      const code = args.code as string;
+      const explanation = args.explanation as string;
+      const isAntiPattern = args.is_anti_pattern as boolean | undefined;
+
+      const success = engine.addPatternExample(patternId, code, explanation, isAntiPattern);
+
+      if (!success) {
+        return {
+          success: false,
+          error: `Pattern not found: ${patternId}`,
+          message: 'Use list_patterns to see available patterns'
+        };
+      }
+
+      return {
+        success: true,
+        pattern_id: patternId,
+        type: isAntiPattern ? 'anti-pattern' : 'example',
+        message: `${isAntiPattern ? 'Anti-pattern' : 'Example'} added successfully`
+      };
+    }
+
+    case 'get_architecture_stats': {
+      const stats = engine.getArchitectureStats();
+
+      return {
+        patterns: {
+          total: stats.patterns.total,
+          by_category: stats.patterns.byCategory,
+          top_patterns: stats.patterns.topPatterns
+        },
+        functions: {
+          total: stats.functions.total,
+          exported: stats.functions.exported,
+          by_purpose: stats.functions.byPurpose
+        },
+        message: `${stats.patterns.total} patterns learned, ${stats.functions.total} functions indexed`
       };
     }
 

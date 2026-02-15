@@ -17,9 +17,10 @@ import { LivingDocumentationEngine } from './living-docs/index.js';
 import { ContextRotPrevention } from './context-rot/index.js';
 import { ConfidenceScorer } from './confidence/index.js';
 import { ChangeIntelligence } from './change-intelligence/index.js';
+import { ArchitectureEnforcement } from './architecture/index.js';
 import { detectLanguage, getPreview, countLines } from '../utils/files.js';
 import type { MemoryLayerConfig, AssembledContext, Decision, ProjectSummary, SearchResult, CodeSymbol, SymbolKind, ActiveFeatureContext, HotContext } from '../types/index.js';
-import type { ArchitectureDoc, ComponentDoc, DailyChangelog, ChangelogOptions, ValidationResult, ActivityResult, UndocumentedItem, ContextHealth, CompactionResult, CompactionOptions, CriticalContext, DriftResult, ConfidenceResult, ConfidenceLevel, ConfidenceSources, ConflictResult, ChangeQueryResult, ChangeQueryOptions, Diagnosis, PastBug, FixSuggestion, Change } from '../types/documentation.js';
+import type { ArchitectureDoc, ComponentDoc, DailyChangelog, ChangelogOptions, ValidationResult, ActivityResult, UndocumentedItem, ContextHealth, CompactionResult, CompactionOptions, CriticalContext, DriftResult, ConfidenceResult, ConfidenceLevel, ConfidenceSources, ConflictResult, ChangeQueryResult, ChangeQueryOptions, Diagnosis, PastBug, FixSuggestion, Change, Pattern, PatternCategory, PatternValidationResult, ExistingFunction } from '../types/documentation.js';
 import type Database from 'better-sqlite3';
 
 export class MemoryLayerEngine {
@@ -40,6 +41,7 @@ export class MemoryLayerEngine {
   private contextRotPrevention: ContextRotPrevention;
   private confidenceScorer: ConfidenceScorer;
   private changeIntelligence: ChangeIntelligence;
+  private architectureEnforcement: ArchitectureEnforcement;
   private initialized = false;
 
   constructor(config: MemoryLayerConfig) {
@@ -116,6 +118,13 @@ export class MemoryLayerEngine {
       this.indexer.getEmbeddingGenerator()
     );
 
+    // Phase 10: Initialize architecture enforcement
+    this.architectureEnforcement = new ArchitectureEnforcement(
+      this.db,
+      this.tier2,
+      this.indexer.getEmbeddingGenerator()
+    );
+
     // Register this project
     const projectInfo = this.projectManager.registerProject(config.projectPath);
     this.projectManager.setActiveProject(projectInfo.id);
@@ -167,6 +176,12 @@ export class MemoryLayerEngine {
     const synced = this.changeIntelligence.initialize();
     if (synced > 0) {
       console.error(`Synced ${synced} changes from git history`);
+    }
+
+    // Initialize architecture enforcement (learn patterns from codebase)
+    const archResult = this.architectureEnforcement.initialize();
+    if (archResult.patternsLearned > 0 || archResult.examplesAdded > 0) {
+      console.error(`Architecture enforcement: ${archResult.patternsLearned} patterns learned, ${archResult.examplesAdded} examples added`);
     }
 
     this.initialized = true;
@@ -966,6 +981,109 @@ export class MemoryLayerEngine {
   // Format fix suggestions for display
   formatFixSuggestions(suggestions: FixSuggestion[]): string {
     return ChangeIntelligence.formatFixSuggestions(suggestions);
+  }
+
+  // ========== Phase 10: Architecture Enforcement ==========
+
+  // Validate code against patterns
+  validatePattern(code: string, type?: string): PatternValidationResult {
+    const category = type === 'auto' || !type ? undefined : type as PatternCategory;
+    return this.architectureEnforcement.validatePattern(code, category);
+  }
+
+  // Suggest existing functions for an intent
+  suggestExisting(intent: string, limit?: number): ExistingFunction[] {
+    return this.architectureEnforcement.suggestExisting(intent, limit);
+  }
+
+  // Learn a new pattern
+  learnPattern(
+    code: string,
+    name: string,
+    description?: string,
+    category?: string
+  ): { success: boolean; patternId?: string; message: string } {
+    return this.architectureEnforcement.learnPattern(
+      code,
+      name,
+      description,
+      category as PatternCategory | undefined
+    );
+  }
+
+  // List all patterns
+  listPatterns(category?: string): Pattern[] {
+    return this.architectureEnforcement.listPatterns(category as PatternCategory | undefined);
+  }
+
+  // Get a specific pattern
+  getPattern(id: string): Pattern | null {
+    return this.architectureEnforcement.getPattern(id);
+  }
+
+  // Add example to existing pattern
+  addPatternExample(
+    patternId: string,
+    code: string,
+    explanation: string,
+    isAntiPattern: boolean = false
+  ): boolean {
+    return this.architectureEnforcement.addExample(patternId, code, explanation, isAntiPattern);
+  }
+
+  // Add rule to existing pattern
+  addPatternRule(
+    patternId: string,
+    rule: string,
+    severity: 'info' | 'warning' | 'critical'
+  ): boolean {
+    return this.architectureEnforcement.addRule(patternId, rule, severity);
+  }
+
+  // Search patterns
+  searchPatterns(query: string): Pattern[] {
+    return this.architectureEnforcement.searchPatterns(query);
+  }
+
+  // Delete a pattern
+  deletePattern(id: string): boolean {
+    return this.architectureEnforcement.deletePattern(id);
+  }
+
+  // Get architecture statistics
+  getArchitectureStats(): {
+    patterns: {
+      total: number;
+      byCategory: Record<string, number>;
+      topPatterns: Array<{ name: string; usageCount: number }>;
+    };
+    functions: {
+      total: number;
+      exported: number;
+      byPurpose: Record<string, number>;
+    };
+  } {
+    return this.architectureEnforcement.getStats();
+  }
+
+  // Refresh the function index
+  refreshArchitectureIndex(): void {
+    this.architectureEnforcement.refreshIndex();
+  }
+
+  // Format validation result for display
+  formatValidationResult(result: PatternValidationResult): string {
+    return ArchitectureEnforcement.formatValidationResult(result);
+  }
+
+  // Format pattern list for display
+  formatPatternList(patterns: Pattern[]): string {
+    return ArchitectureEnforcement.formatPatternList(patterns);
+  }
+
+  // Format existing suggestions for display
+  formatExistingSuggestions(suggestions: ExistingFunction[]): string {
+    return ArchitectureEnforcement.formatSuggestions(suggestions);
   }
 
   shutdown(): void {

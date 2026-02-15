@@ -451,3 +451,88 @@ export interface ChangeQueryOptions {
   type?: 'add' | 'modify' | 'delete' | 'rename';
   limit?: number;
 }
+
+// ============================================
+// Architecture Enforcement Types
+// ============================================
+
+export interface Pattern {
+  id: string;
+  name: string;
+  category: PatternCategory;
+  description: string;
+  examples: CodeExample[];
+  antiPatterns: CodeExample[];
+  rules: PatternRule[];
+  createdAt: Date;
+  usageCount: number;
+}
+
+export type PatternCategory =
+  | 'error_handling'
+  | 'api_call'
+  | 'component'
+  | 'state_management'
+  | 'data_fetching'
+  | 'authentication'
+  | 'validation'
+  | 'logging'
+  | 'custom';
+
+export interface CodeExample {
+  code: string;
+  explanation: string;
+  file?: string;
+}
+
+export interface PatternRule {
+  rule: string;
+  severity: 'info' | 'warning' | 'critical';
+  check?: string;  // Regex or keyword to check
+}
+
+export interface PatternValidationResult {
+  valid: boolean;
+  score: number;  // 0-100
+  matchedPattern?: string;
+  violations: PatternViolation[];
+  suggestions: PatternSuggestion[];
+  existingAlternatives: ExistingFunction[];
+}
+
+export interface PatternViolation {
+  rule: string;
+  message: string;
+  severity: 'info' | 'warning' | 'critical';
+  line?: number;
+  suggestion?: string;
+}
+
+export interface PatternSuggestion {
+  description: string;
+  code?: string;
+  priority: 'low' | 'medium' | 'high';
+}
+
+export interface ExistingFunction {
+  name: string;
+  file: string;
+  line: number;
+  signature: string;
+  description?: string;
+  usageCount: number;
+  purpose: string;
+  similarity: number;
+}
+
+export interface FunctionIndex {
+  name: string;
+  file: string;
+  line: number;
+  signature: string;
+  exported: boolean;
+  usageCount: number;
+  parameters: string[];
+  returnType?: string;
+  docstring?: string;
+}

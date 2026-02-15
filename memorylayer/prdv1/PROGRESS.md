@@ -26,6 +26,7 @@ MemoryLayer is an MCP (Model Context Protocol) server that provides intelligent 
 | **Context Rot Prevention** | P0 | Detect drift, track context health, smart compaction | `src/core/context-rot/` |
 | **Confidence Scoring** | P1 | Score code suggestions, track sources, detect conflicts | `src/core/confidence/` |
 | **Change Intelligence** | P1 | Track changes, diagnose bugs, suggest fixes | `src/core/change-intelligence/` |
+| **Architecture Enforcement** | P2 | Pattern library, validation, duplicate detection | `src/core/architecture/` |
 
 ---
 
@@ -185,20 +186,62 @@ src/core/change-intelligence/
 
 ---
 
-## Not Yet Implemented
+## Recently Completed: Architecture Enforcement (P2)
 
-### Architecture Enforcement (P2)
-**Effort:** 2 weeks
+### What It Does
+- Maintains a pattern library with examples, anti-patterns, and rules
+- Automatically learns patterns from the codebase
+- Validates new code against established patterns
+- Detects duplicate/similar functions to prevent code duplication
+- Suggests existing functions for common intents
+- Provides pattern-based scoring and improvement suggestions
 
-**Description:** Enforce architectural rules and patterns.
+### New Files Created
+```
+src/core/architecture/
+├── index.ts                    # Barrel export
+├── architecture-enforcement.ts # Main orchestrator
+├── pattern-library.ts          # Pattern storage with SQLite
+├── pattern-learner.ts          # Pattern extraction from code
+├── pattern-validator.ts        # Code validation against patterns
+└── duplicate-detector.ts       # Function duplication detection
+```
 
-**Planned Features:**
-- Define layer boundaries
-- Detect architecture violations
-- Suggest fixes for violations
-- Track architecture drift over time
+### New MCP Tools
+| Tool | Description |
+|------|-------------|
+| `validate_pattern` | Validate code against established patterns |
+| `suggest_existing` | Find existing functions that match intent |
+| `learn_pattern` | Teach a new pattern to the system |
+| `list_patterns` | List all learned patterns |
+| `get_pattern` | Get details of a specific pattern |
+| `add_pattern_example` | Add example or anti-pattern to a pattern |
+| `get_architecture_stats` | Get statistics about patterns and functions |
+
+### Database Tables Added
+- `patterns` - Stores patterns with examples, anti-patterns, rules, and usage counts
+
+### Default Patterns Included
+- Error Handling (try-catch, logging, rethrow)
+- API Calls (status check, headers, error handling)
+- Component Structure (Props typing, destructuring)
+- Null Checking (optional chaining, nullish coalescing)
+- Async/Await (promise handling, error handling)
+
+### Pattern Categories
+- error_handling, api_call, component, state_management
+- data_fetching, authentication, validation, logging, custom
+
+### Validation Features
+- Score-based validation (0-100)
+- Severity levels: info, warning, critical
+- Anti-pattern detection
+- Existing function suggestions
+- Improvement recommendations
 
 ---
+
+## Not Yet Implemented
 
 ### Test-Aware Suggestions (P2)
 **Effort:** 2 weeks
@@ -261,6 +304,17 @@ src/core/change-intelligence/
 | `list_recent_contexts` | List recent feature contexts |
 | `switch_feature_context` | Switch to a previous context |
 
+### Architecture Enforcement Tools
+| Tool | Description |
+|------|-------------|
+| `validate_pattern` | Validate code against patterns |
+| `suggest_existing` | Find existing functions for intent |
+| `learn_pattern` | Teach a new pattern |
+| `list_patterns` | List all patterns |
+| `get_pattern` | Get pattern details |
+| `add_pattern_example` | Add example to pattern |
+| `get_architecture_stats` | Get pattern/function stats |
+
 ---
 
 ## Project Structure
@@ -268,20 +322,24 @@ src/core/change-intelligence/
 ```
 MemoryLayer/
 ├── src/
-│   ├── cli/              # CLI commands
-│   ├── core/             # Core business logic
-│   │   ├── living-docs/  # Living Documentation module
-│   │   ├── engine.ts     # Main MemoryLayerEngine
-│   │   ├── context.ts    # Context assembly
-│   │   ├── decisions.ts  # Decision tracking
+│   ├── cli/                     # CLI commands
+│   ├── core/                    # Core business logic
+│   │   ├── architecture/        # Architecture Enforcement module
+│   │   ├── change-intelligence/ # Change Intelligence module
+│   │   ├── confidence/          # Confidence Scoring module
+│   │   ├── context-rot/         # Context Rot Prevention module
+│   │   ├── living-docs/         # Living Documentation module
+│   │   ├── engine.ts            # Main MemoryLayerEngine
+│   │   ├── context.ts           # Context assembly
+│   │   ├── decisions.ts         # Decision tracking
 │   │   └── ...
-│   ├── indexing/         # Code indexing & embeddings
-│   ├── server/           # MCP server & tools
-│   ├── storage/          # Database & storage tiers
-│   ├── types/            # TypeScript types
-│   └── utils/            # Utility functions
-├── tests/                # Test files
-├── dist/                 # Build output
+│   ├── indexing/                # Code indexing & embeddings
+│   ├── server/                  # MCP server & tools
+│   ├── storage/                 # Database & storage tiers
+│   ├── types/                   # TypeScript types
+│   └── utils/                   # Utility functions
+├── tests/                       # Test files
+├── dist/                        # Build output
 └── package.json
 ```
 
@@ -342,5 +400,5 @@ Example MCP client configuration:
 1. ~~**Context Rot Prevention (P0)**~~ - ✅ Complete
 2. ~~**Confidence Scoring (P1)**~~ - ✅ Complete
 3. ~~**Change Intelligence (P1)**~~ - ✅ Complete
-4. **Architecture Enforcement (P2)** - Nice to have
+4. ~~**Architecture Enforcement (P2)**~~ - ✅ Complete
 5. **Test-Aware Suggestions (P2)** - Nice to have
