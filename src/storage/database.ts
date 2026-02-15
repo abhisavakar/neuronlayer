@@ -197,6 +197,33 @@ export function initializeDatabase(dbPath: string): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_activity_timestamp ON activity_log(timestamp);
     CREATE INDEX IF NOT EXISTS idx_activity_type ON activity_log(activity_type);
     CREATE INDEX IF NOT EXISTS idx_documentation_file ON documentation(file_id);
+
+    -- Phase 7: Context Rot Prevention tables
+    CREATE TABLE IF NOT EXISTS critical_context (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      content TEXT NOT NULL,
+      reason TEXT,
+      source TEXT,
+      never_compress INTEGER DEFAULT 1,
+      created_at INTEGER DEFAULT (unixepoch())
+    );
+
+    CREATE TABLE IF NOT EXISTS context_health_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      timestamp INTEGER DEFAULT (unixepoch()),
+      tokens_used INTEGER,
+      tokens_limit INTEGER,
+      utilization_percent REAL,
+      drift_score REAL,
+      relevance_score REAL,
+      health TEXT,
+      compaction_triggered INTEGER DEFAULT 0
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_critical_context_type ON critical_context(type);
+    CREATE INDEX IF NOT EXISTS idx_critical_context_created ON critical_context(created_at);
+    CREATE INDEX IF NOT EXISTS idx_context_health_timestamp ON context_health_history(timestamp);
   `);
 
   return db;

@@ -177,3 +177,96 @@ export interface DocSuggestion {
   suggestion: string;
   priority: 'low' | 'medium' | 'high';
 }
+
+// ============================================
+// Context Rot Prevention Types
+// ============================================
+
+export interface ContextHealth {
+  // Metrics
+  tokensUsed: number;
+  tokensLimit: number;
+  utilizationPercent: number;
+
+  // Health Indicators
+  health: 'good' | 'warning' | 'critical';
+  relevanceScore: number;        // 0-1, how relevant is old context
+  driftScore: number;            // 0-1, how much has AI drifted
+  criticalContextCount: number;  // Number of critical items
+
+  // Detection
+  driftDetected: boolean;
+  compactionNeeded: boolean;
+
+  // Suggestions
+  suggestions: string[];
+}
+
+export interface CompactionSuggestion {
+  // What to keep
+  critical: ContextChunk[];
+
+  // What to summarize
+  summarizable: ContextChunk[];
+
+  // What to remove
+  removable: ContextChunk[];
+
+  // Estimated savings
+  tokensSaved: number;
+  newUtilization: number;
+}
+
+export interface ContextChunk {
+  id: string;
+  content: string;
+  tokens: number;
+  timestamp: Date;
+  relevanceScore: number;
+  isCritical: boolean;
+  type: 'message' | 'decision' | 'requirement' | 'instruction' | 'code';
+}
+
+export interface CompactionResult {
+  success: boolean;
+  strategy: 'summarize' | 'selective' | 'aggressive';
+  tokensBefore: number;
+  tokensAfter: number;
+  tokensSaved: number;
+  preservedCritical: number;
+  summarizedChunks: number;
+  removedChunks: number;
+  summaries: string[];
+}
+
+export interface CriticalContext {
+  id: string;
+  type: 'decision' | 'requirement' | 'instruction' | 'custom';
+  content: string;
+  reason?: string;
+  createdAt: Date;
+  source?: string;           // Where this came from (file, message, etc.)
+  neverCompress: boolean;
+}
+
+export interface DriftResult {
+  driftScore: number;        // 0-1, higher = more drift
+  driftDetected: boolean;
+  missingRequirements: string[];
+  contradictions: Contradiction[];
+  suggestedReminders: string[];
+  topicShift: number;        // 0-1, how much topic has shifted
+}
+
+export interface Contradiction {
+  earlier: string;
+  later: string;
+  severity: 'low' | 'medium' | 'high';
+}
+
+export interface CompactionOptions {
+  strategy: 'summarize' | 'selective' | 'aggressive';
+  preserveRecent?: number;     // Number of recent messages to preserve
+  targetUtilization?: number;  // Target % (e.g., 50%)
+  preserveCritical?: boolean;  // Always preserve critical (default: true)
+}

@@ -484,6 +484,79 @@ export const toolDefinitions: ToolDefinition[] = [
         }
       }
     }
+  },
+  // Phase 7: Context Rot Prevention tools
+  {
+    name: 'get_context_health',
+    description: 'Check current context health, detect drift, and get compaction suggestions.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        include_history: {
+          type: 'boolean',
+          description: 'Include health history (default: false)'
+        }
+      }
+    }
+  },
+  {
+    name: 'trigger_compaction',
+    description: 'Manually trigger context compaction to reduce token usage.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        strategy: {
+          type: 'string',
+          enum: ['summarize', 'selective', 'aggressive'],
+          description: 'Compaction strategy: summarize (gentle), selective (moderate), aggressive (maximum reduction)'
+        },
+        preserve_recent: {
+          type: 'number',
+          description: 'Number of recent messages to preserve (default: 10)'
+        },
+        target_utilization: {
+          type: 'number',
+          description: 'Target utilization percentage (e.g., 50 for 50%)'
+        }
+      }
+    }
+  },
+  {
+    name: 'mark_critical',
+    description: 'Mark content as critical - it will never be compressed or removed.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        content: {
+          type: 'string',
+          description: 'The critical content to preserve'
+        },
+        type: {
+          type: 'string',
+          enum: ['decision', 'requirement', 'instruction', 'custom'],
+          description: 'Type of critical content'
+        },
+        reason: {
+          type: 'string',
+          description: 'Why this is critical (optional)'
+        }
+      },
+      required: ['content']
+    }
+  },
+  {
+    name: 'get_critical_context',
+    description: 'Get all marked critical context items.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        type: {
+          type: 'string',
+          enum: ['decision', 'requirement', 'instruction', 'custom'],
+          description: 'Filter by type (optional)'
+        }
+      }
+    }
   }
 ];
 
@@ -1181,6 +1254,121 @@ export async function handleToolCall(
         message: items.length === 0
           ? 'All exported code is documented!'
           : `Found ${items.length} undocumented items across ${byFile.size} files`
+      };
+    }
+
+    // Phase 7: Context Rot Prevention tools
+    case 'get_context_health': {
+      const includeHistory = args.include_history as boolean | undefined;
+
+      const health = engine.getContextHealth();
+      const drift = engine.detectDrift();
+
+      const result: Record<string, unknown> = {
+        health: health.health,
+        tokens_used: health.tokensUsed,
+        tokens_limit: health.tokensLimit,
+        utilization: `${health.utilizationPercent}%`,
+        drift_score: health.driftScore,
+        drift_detected: health.driftDetected,
+        relevance_score: health.relevanceScore,
+        critical_context_count: health.criticalContextCount,
+        compaction_needed: health.compactionNeeded,
+        suggestions: health.suggestions,
+        drift_details: {
+          missing_requirements: drift.missingRequirements,
+          contradictions: drift.contradictions.length,
+          topic_shift: drift.topicShift,
+          suggested_reminders: drift.suggestedReminders
+        }
+      };
+
+      if (includeHistory) {
+        // Note: getHealthHistory would need to be exposed from engine
+        result.message = 'Health history tracking available';
+      }
+
+      return result;
+    }
+
+    case 'trigger_compaction': {
+      const strategy = (args.strategy as 'summarize' | 'selective' | 'aggressive') || 'summarize';
+      const preserveRecent = args.preserve_recent as number | undefined;
+      const targetUtilization = args.target_utilization as number | undefined;
+
+      const result = engine.triggerCompaction({
+        strategy,
+        preserveRecent,
+        targetUtilization,
+        preserveCritical: true
+      });
+
+      return {
+        success: result.success,
+        strategy: result.strategy,
+        tokens_before: result.tokensBefore,
+        tokens_after: result.tokensAfter,
+        tokens_saved: result.tokensSaved,
+        reduction: `${Math.round((result.tokensSaved / result.tokensBefore) * 100)}%`,
+        preserved_critical: result.preservedCritical,
+        summarized_chunks: result.summarizedChunks,
+        removed_chunks: result.removedChunks,
+        summaries: result.summaries,
+        message: result.success
+          ? `Compaction successful: saved ${result.tokensSaved} tokens (${Math.round((result.tokensSaved / result.tokensBefore) * 100)}% reduction)`
+          : 'Compaction failed'
+      };
+    }
+
+    case 'mark_critical': {
+      const content = args.content as string;
+      const type = args.type as 'decision' | 'requirement' | 'instruction' | 'custom' | undefined;
+      const reason = args.reason as string | undefined;
+
+      const critical = engine.markCritical(content, { type, reason });
+
+      return {
+        id: critical.id,
+        type: critical.type,
+        content: critical.content,
+        reason: critical.reason,
+        created_at: critical.createdAt.toISOString(),
+        never_compress: critical.neverCompress,
+        message: `Marked as critical ${critical.type}: "${content.slice(0, 50)}${content.length > 50 ? '...' : ''}"`
+      };
+    }
+
+    case 'get_critical_context': {
+      const type = args.type as 'decision' | 'requirement' | 'instruction' | 'custom' | undefined;
+
+      const items = engine.getCriticalContext(type);
+
+      // Group by type
+      const byType: Record<string, number> = {
+        decision: 0,
+        requirement: 0,
+        instruction: 0,
+        custom: 0
+      };
+
+      for (const item of items) {
+        byType[item.type] = (byType[item.type] || 0) + 1;
+      }
+
+      return {
+        total: items.length,
+        by_type: byType,
+        items: items.map(item => ({
+          id: item.id,
+          type: item.type,
+          content: item.content,
+          reason: item.reason,
+          created_at: item.createdAt.toISOString()
+        })),
+        summary: engine.getContextSummaryForAI(),
+        message: items.length === 0
+          ? 'No critical context marked. Consider marking important decisions and requirements.'
+          : `${items.length} critical items will be preserved during compaction`
       };
     }
 

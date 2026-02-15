@@ -1,6 +1,6 @@
 # MemoryLayer Development Progress
 
-> Last Updated: 2026-02-14
+> Last Updated: 2026-02-15
 
 ## Overview
 
@@ -23,10 +23,46 @@ MemoryLayer is an MCP (Model Context Protocol) server that provides intelligent 
 | **Active Feature Context** | P0 | Track files, changes, and queries for current work session | `src/core/feature-context.ts` |
 | **Multi-Project Support** | P4 | Register and switch between multiple projects | `src/core/project-manager.ts` |
 | **Living Documentation** | P0 | Auto-generate architecture docs, changelogs, component docs | `src/core/living-docs/` |
+| **Context Rot Prevention** | P0 | Detect drift, track context health, smart compaction | `src/core/context-rot/` |
 
 ---
 
-## Recently Completed: Living Documentation (P0)
+## Recently Completed: Context Rot Prevention (P0)
+
+### What It Does
+- Monitors context health (token usage, utilization)
+- Detects drift from initial requirements
+- Identifies contradictions in conversation
+- Marks and preserves critical context (decisions, requirements, instructions)
+- Smart compaction with 3 strategies: summarize, selective, aggressive
+- Auto-compaction based on health status
+
+### New Files Created
+```
+src/core/context-rot/
+├── index.ts                    # Barrel export
+├── context-rot-prevention.ts   # Main orchestrator
+├── context-health.ts           # Health monitoring
+├── drift-detector.ts           # Drift detection
+├── compaction.ts               # Compaction strategies
+└── critical-context.ts         # Critical context management
+```
+
+### New MCP Tools
+| Tool | Description |
+|------|-------------|
+| `get_context_health` | Check context health, drift score, and suggestions |
+| `trigger_compaction` | Manually trigger context compaction |
+| `mark_critical` | Mark content as critical (never compress) |
+| `get_critical_context` | Get all critical context items |
+
+### Database Tables Added
+- `critical_context` - Stores marked critical context items
+- `context_health_history` - Tracks health metrics over time
+
+---
+
+## Previously Completed: Living Documentation (P0)
 
 ### What It Does
 - Generates architecture documentation with ASCII diagrams
@@ -68,19 +104,6 @@ src/types/documentation.ts      # Type definitions
 ---
 
 ## Not Yet Implemented
-
-### Phase 2: Context Rot Prevention (P0)
-**Effort:** 1 week
-
-**Description:** Automatically detect when context becomes stale or outdated.
-
-**Planned Features:**
-- Track when files change after being referenced
-- Alert when decisions may be outdated
-- Suggest re-indexing for modified files
-- Confidence decay over time
-
----
 
 ### Phase 3: Confidence Scoring (P1)
 **Effort:** 1 week

@@ -14,9 +14,10 @@ import { ProjectManager, type ProjectInfo } from './project-manager.js';
 import { ADRExporter, type ADRExportOptions } from './adr-exporter.js';
 import { FeatureContextManager } from './feature-context.js';
 import { LivingDocumentationEngine } from './living-docs/index.js';
+import { ContextRotPrevention } from './context-rot/index.js';
 import { detectLanguage, getPreview, countLines } from '../utils/files.js';
 import type { MemoryLayerConfig, AssembledContext, Decision, ProjectSummary, SearchResult, CodeSymbol, SymbolKind, ActiveFeatureContext, HotContext } from '../types/index.js';
-import type { ArchitectureDoc, ComponentDoc, DailyChangelog, ChangelogOptions, ValidationResult, ActivityResult, UndocumentedItem } from '../types/documentation.js';
+import type { ArchitectureDoc, ComponentDoc, DailyChangelog, ChangelogOptions, ValidationResult, ActivityResult, UndocumentedItem, ContextHealth, CompactionResult, CompactionOptions, CriticalContext, DriftResult } from '../types/documentation.js';
 import type Database from 'better-sqlite3';
 
 export class MemoryLayerEngine {
@@ -34,6 +35,7 @@ export class MemoryLayerEngine {
   private adrExporter: ADRExporter;
   private featureContextManager: FeatureContextManager;
   private livingDocs: LivingDocumentationEngine;
+  private contextRotPrevention: ContextRotPrevention;
   private initialized = false;
 
   constructor(config: MemoryLayerConfig) {
@@ -92,6 +94,9 @@ export class MemoryLayerEngine {
       this.db,
       this.tier2
     );
+
+    // Phase 7: Initialize context rot prevention
+    this.contextRotPrevention = new ContextRotPrevention(this.db, config.maxTokens);
 
     // Register this project
     const projectInfo = this.projectManager.registerProject(config.projectPath);
@@ -799,6 +804,70 @@ export class MemoryLayerEngine {
     type?: 'file' | 'function' | 'class' | 'interface' | 'all';
   }): Promise<UndocumentedItem[]> {
     return this.livingDocs.findUndocumented(options);
+  }
+
+  // ========== Phase 7: Context Rot Prevention ==========
+
+  // Get context health status
+  getContextHealth(): ContextHealth {
+    return this.contextRotPrevention.getContextHealth();
+  }
+
+  // Set current token count (for external tracking)
+  setContextTokens(tokens: number): void {
+    this.contextRotPrevention.setCurrentTokens(tokens);
+  }
+
+  // Detect drift from initial requirements
+  detectDrift(): DriftResult {
+    return this.contextRotPrevention.detectDrift();
+  }
+
+  // Mark content as critical (never compress)
+  markCritical(
+    content: string,
+    options?: {
+      type?: CriticalContext['type'];
+      reason?: string;
+      source?: string;
+    }
+  ): CriticalContext {
+    return this.contextRotPrevention.markCritical(content, options);
+  }
+
+  // Get all critical context
+  getCriticalContext(type?: CriticalContext['type']): CriticalContext[] {
+    return this.contextRotPrevention.getCriticalContext(type);
+  }
+
+  // Remove a critical context item
+  removeCriticalContext(id: string): boolean {
+    return this.contextRotPrevention.removeCritical(id);
+  }
+
+  // Trigger context compaction
+  triggerCompaction(options: CompactionOptions): CompactionResult {
+    return this.contextRotPrevention.triggerCompaction(options);
+  }
+
+  // Auto-compact based on current health
+  autoCompact(): CompactionResult {
+    return this.contextRotPrevention.autoCompact();
+  }
+
+  // Add a message to conversation tracking
+  addConversationMessage(role: 'user' | 'assistant' | 'system', content: string): void {
+    this.contextRotPrevention.addMessage({ role, content });
+  }
+
+  // Clear conversation history
+  clearConversation(): void {
+    this.contextRotPrevention.clearConversation();
+  }
+
+  // Get context summary for AI (includes critical context and drift warnings)
+  getContextSummaryForAI(): string {
+    return this.contextRotPrevention.getContextSummaryForAI();
   }
 
   shutdown(): void {
