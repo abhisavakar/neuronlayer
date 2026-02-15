@@ -557,6 +557,61 @@ export const toolDefinitions: ToolDefinition[] = [
         }
       }
     }
+  },
+  // Phase 8: Confidence Scoring tools
+  {
+    name: 'get_confidence',
+    description: 'Get confidence score for a code suggestion. Shows how confident the AI should be based on codebase matches, decision alignment, and pattern matching.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        code: {
+          type: 'string',
+          description: 'The code to evaluate confidence for'
+        },
+        context: {
+          type: 'string',
+          description: 'What this code is for (optional context)'
+        }
+      },
+      required: ['code']
+    }
+  },
+  {
+    name: 'list_sources',
+    description: 'List all sources used for a code suggestion - codebase matches, related decisions, and matched patterns.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        code: {
+          type: 'string',
+          description: 'The code to find sources for'
+        },
+        context: {
+          type: 'string',
+          description: 'What this code is for (optional)'
+        },
+        include_snippets: {
+          type: 'boolean',
+          description: 'Include code snippets from matches (default: false)'
+        }
+      },
+      required: ['code']
+    }
+  },
+  {
+    name: 'check_conflicts',
+    description: 'Check if code conflicts with past architectural decisions.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        code: {
+          type: 'string',
+          description: 'The code to check for conflicts'
+        }
+      },
+      required: ['code']
+    }
   }
 ];
 
@@ -1369,6 +1424,134 @@ export async function handleToolCall(
         message: items.length === 0
           ? 'No critical context marked. Consider marking important decisions and requirements.'
           : `${items.length} critical items will be preserved during compaction`
+      };
+    }
+
+    // Phase 8: Confidence Scoring tools
+    case 'get_confidence': {
+      const code = args.code as string;
+      const context = args.context as string | undefined;
+
+      const result = await engine.getConfidence(code, context);
+
+      return {
+        confidence: result.confidence,
+        score: result.score,
+        reasoning: result.reasoning,
+        indicator: engine.getConfidenceIndicator(result.confidence),
+        sources: {
+          codebase: result.sources.codebase.map(m => ({
+            file: m.file,
+            line: m.line,
+            function: m.function,
+            similarity: m.similarity,
+            usage_count: m.usageCount
+          })),
+          decisions: result.sources.decisions.map(d => ({
+            id: d.id,
+            title: d.title,
+            relevance: d.relevance,
+            date: d.date.toISOString()
+          })),
+          patterns: result.sources.patterns.map(p => ({
+            pattern: p.pattern,
+            confidence: p.confidence,
+            examples: p.examples
+          })),
+          used_general_knowledge: result.sources.usedGeneralKnowledge
+        },
+        warnings: result.warnings.map(w => ({
+          type: w.type,
+          message: w.message,
+          severity: w.severity,
+          suggestion: w.suggestion,
+          related_decision: w.relatedDecision
+        })),
+        formatted: engine.formatConfidenceResult(result),
+        message: `${result.confidence.toUpperCase()} confidence (${result.score}%): ${result.reasoning}`
+      };
+    }
+
+    case 'list_sources': {
+      const code = args.code as string;
+      const context = args.context as string | undefined;
+      const includeSnippets = args.include_snippets as boolean | undefined;
+
+      const sources = await engine.listConfidenceSources(code, context, includeSnippets);
+
+      // Calculate weights
+      const hasCodebase = sources.codebase.length > 0;
+      const hasDecisions = sources.decisions.length > 0;
+
+      let codebaseWeight = 50;
+      let decisionWeight = 30;
+      let patternWeight = 20;
+
+      if (!hasCodebase) {
+        codebaseWeight = 0;
+        decisionWeight += 25;
+        patternWeight += 25;
+      }
+
+      if (!hasDecisions) {
+        decisionWeight = 0;
+        codebaseWeight += 15;
+        patternWeight += 15;
+      }
+
+      return {
+        codebase: {
+          weight: `${codebaseWeight}%`,
+          matches: sources.codebase.map(m => ({
+            file: m.file,
+            line: m.line,
+            function: m.function,
+            similarity: m.similarity,
+            snippet: m.snippet,
+            usage_count: m.usageCount
+          }))
+        },
+        decisions: {
+          weight: `${decisionWeight}%`,
+          matches: sources.decisions.map(d => ({
+            id: d.id,
+            title: d.title,
+            relevance: d.relevance,
+            date: d.date.toISOString()
+          }))
+        },
+        patterns: {
+          weight: `${patternWeight}%`,
+          matches: sources.patterns.map(p => ({
+            pattern: p.pattern,
+            confidence: p.confidence,
+            examples: p.examples
+          }))
+        },
+        used_general_knowledge: sources.usedGeneralKnowledge,
+        message: sources.usedGeneralKnowledge
+          ? 'Sources: Based primarily on general knowledge (no strong codebase matches)'
+          : `Sources: Found ${sources.codebase.length} codebase matches, ${sources.decisions.length} related decisions, ${sources.patterns.length} patterns`
+      };
+    }
+
+    case 'check_conflicts': {
+      const code = args.code as string;
+
+      const result = await engine.checkCodeConflicts(code);
+
+      return {
+        has_conflicts: result.hasConflicts,
+        conflicts: result.conflicts.map(c => ({
+          decision_id: c.decisionId,
+          decision_title: c.decisionTitle,
+          decision_date: c.decisionDate.toISOString(),
+          conflict_description: c.conflictDescription,
+          severity: c.severity
+        })),
+        message: result.hasConflicts
+          ? `Found ${result.conflicts.length} conflict(s) with past decisions`
+          : 'No conflicts with past decisions'
       };
     }
 

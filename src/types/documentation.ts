@@ -270,3 +270,100 @@ export interface CompactionOptions {
   targetUtilization?: number;  // Target % (e.g., 50%)
   preserveCritical?: boolean;  // Always preserve critical (default: true)
 }
+
+// ============================================
+// Confidence Scoring Types
+// ============================================
+
+export type ConfidenceLevel = 'high' | 'medium' | 'low' | 'guessing';
+
+export interface ConfidenceResult {
+  confidence: ConfidenceLevel;
+  score: number;              // 0-100
+  reasoning: string;
+  sources: ConfidenceSources;
+  warnings: ConfidenceWarning[];
+}
+
+export interface ConfidenceSources {
+  codebase: CodebaseMatch[];
+  decisions: DecisionMatch[];
+  patterns: PatternMatch[];
+  usedGeneralKnowledge: boolean;
+}
+
+export interface CodebaseMatch {
+  file: string;
+  line?: number;
+  function?: string;
+  similarity: number;          // 0-100
+  snippet?: string;
+  lastModified?: Date;
+  usageCount?: number;
+}
+
+export interface DecisionMatch {
+  id: string;
+  title: string;
+  date: Date;
+  relevance: number;           // 0-100
+}
+
+export interface PatternMatch {
+  pattern: string;
+  confidence: number;          // 0-100
+  examples: string[];
+}
+
+export type WarningType =
+  | 'no_similar_pattern'
+  | 'conflicts_with_decision'
+  | 'untested_approach'
+  | 'high_complexity'
+  | 'potential_security_issue'
+  | 'deprecated_approach';
+
+export interface ConfidenceWarning {
+  type: WarningType;
+  message: string;
+  severity: 'info' | 'warning' | 'critical';
+  suggestion?: string;
+  relatedDecision?: string;
+}
+
+export interface SourceTracking {
+  codebaseMatches: Array<{
+    file: string;
+    function?: string;
+    similarity: number;
+    lastModified?: Date;
+    usageCount: number;
+  }>;
+  decisionMatches: Array<{
+    id: string;
+    title: string;
+    date: Date;
+    relevance: number;
+  }>;
+  patternMatches: Array<{
+    pattern: string;
+    confidence: number;
+    examples: string[];
+  }>;
+  generalKnowledge: {
+    used: boolean;
+    topics: string[];
+    reliability: 'high' | 'medium' | 'low';
+  };
+}
+
+export interface ConflictResult {
+  hasConflicts: boolean;
+  conflicts: Array<{
+    decisionId: string;
+    decisionTitle: string;
+    decisionDate: Date;
+    conflictDescription: string;
+    severity: 'low' | 'medium' | 'high';
+  }>;
+}

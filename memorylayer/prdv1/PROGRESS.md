@@ -24,6 +24,7 @@ MemoryLayer is an MCP (Model Context Protocol) server that provides intelligent 
 | **Multi-Project Support** | P4 | Register and switch between multiple projects | `src/core/project-manager.ts` |
 | **Living Documentation** | P0 | Auto-generate architecture docs, changelogs, component docs | `src/core/living-docs/` |
 | **Context Rot Prevention** | P0 | Detect drift, track context health, smart compaction | `src/core/context-rot/` |
+| **Confidence Scoring** | P1 | Score code suggestions, track sources, detect conflicts | `src/core/confidence/` |
 
 ---
 
@@ -103,20 +104,47 @@ src/types/documentation.ts      # Type definitions
 
 ---
 
-## Not Yet Implemented
+## Recently Completed: Confidence Scoring (P1)
 
-### Phase 3: Confidence Scoring (P1)
-**Effort:** 1 week
+### What It Does
+- Calculates confidence scores (0-100%) for code suggestions
+- Determines confidence levels: high (80-100%), medium (50-80%), low (20-50%), guessing (0-20%)
+- Tracks sources: codebase matches, decision alignment, pattern matching
+- Detects warnings: security issues, deprecated patterns, high complexity
+- Checks for conflicts with recorded architectural decisions
 
-**Description:** Assign confidence scores to retrieved context.
+### New Files Created
+```
+src/core/confidence/
+├── index.ts                    # Barrel export
+├── confidence-scorer.ts        # Main ConfidenceScorer class
+├── source-tracker.ts           # Source tracking
+├── warning-detector.ts         # Warning detection
+└── conflict-checker.ts         # Decision conflict checking
+```
 
-**Planned Features:**
-- Score based on recency of file changes
-- Score based on how often file is accessed
-- Score based on semantic similarity
-- Expose scores in MCP tool responses
+### New MCP Tools
+| Tool | Description |
+|------|-------------|
+| `get_confidence` | Get confidence score for code suggestion |
+| `list_sources` | List all sources used for a suggestion |
+| `check_conflicts` | Check if code conflicts with past decisions |
+
+### Confidence Calculation
+- 50% weight: Codebase matches (similar code found)
+- 30% weight: Decision alignment (matches past decisions)
+- 20% weight: Pattern matching (follows established patterns)
+
+### Warnings Detected
+- Security issues (eval, innerHTML, SQL injection, etc.)
+- Deprecated patterns (var, Buffer constructor, substr, etc.)
+- High complexity (nested conditionals, ternaries)
+- Decision conflicts (contradicts recorded decisions)
+- Untested approaches (no matching tests)
 
 ---
+
+## Not Yet Implemented
 
 ### Phase 4: Change Intelligence (P1)
 **Effort:** 1 week
@@ -283,8 +311,8 @@ Example MCP client configuration:
 
 ## Next Steps
 
-1. **Context Rot Prevention (P0)** - Critical for maintaining accuracy
-2. **Confidence Scoring (P1)** - Helps AI prioritize context
+1. ~~**Context Rot Prevention (P0)**~~ - ✅ Complete
+2. ~~**Confidence Scoring (P1)**~~ - ✅ Complete
 3. **Change Intelligence (P1)** - Useful for refactoring
 4. **Architecture Enforcement (P2)** - Nice to have
 5. **Test-Aware Suggestions (P2)** - Nice to have

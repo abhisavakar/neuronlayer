@@ -15,11 +15,11 @@
 | File Summarization (10x compression) | - | ✅ Complete |
 | Living Documentation | P0 | ✅ Complete |
 | Context Rot Prevention | P0 | ✅ Complete |
+| Confidence Scoring | P1 | ✅ Complete |
 
 ### Not Implemented
 | Feature | Priority | Effort | Status |
 |---------|----------|--------|--------|
-| Confidence Scoring | P1 | 1 week | ❌ Not started |
 | Change Intelligence | P1 | 1 week | ❌ Not started |
 | Architecture Enforcement | P2 | 2 weeks | ❌ Not started |
 | Test-Aware Suggestions | P2 | 2 weeks | ❌ Not started |
@@ -460,9 +460,37 @@ export class MemoryLayerEngine {
 
 ## Future Phases
 
-| Phase | Feature | Priority | Effort |
-|-------|---------|----------|--------|
-| 3 | Confidence Scoring | P1 | 1 week |
-| 4 | Change Intelligence | P1 | 1 week |
-| 5 | Architecture Enforcement | P2 | 2 weeks |
-| 6 | Test-Aware Suggestions | P2 | 2 weeks |      
+| Phase | Feature | Priority | Effort | Status |
+|-------|---------|----------|--------|--------|
+| 3 | Confidence Scoring | P1 | 1 week | ✅ Complete |
+| 4 | Change Intelligence | P1 | 1 week | ❌ Not started |
+| 5 | Architecture Enforcement | P2 | 2 weeks | ❌ Not started |
+| 6 | Test-Aware Suggestions | P2 | 2 weeks | ❌ Not started |
+
+---
+
+## Phase 8: Confidence Scoring Implementation (Completed)
+
+### Files Created
+```
+src/core/confidence/
+├── index.ts                    # Barrel export
+├── confidence-scorer.ts        # Main ConfidenceScorer class
+├── source-tracker.ts           # Source tracking (codebase, decisions, patterns)
+├── warning-detector.ts         # Security, complexity, deprecation warnings
+└── conflict-checker.ts         # Decision conflict detection
+```
+
+### New MCP Tools
+| Tool | Description |
+|------|-------------|
+| `get_confidence` | Get confidence score for code with sources and warnings |
+| `list_sources` | List all sources (codebase matches, decisions, patterns) |
+| `check_conflicts` | Check if code conflicts with past decisions |
+
+### Features Implemented
+- Confidence scoring (0-100%) with levels: high, medium, low, guessing
+- Source tracking: codebase matches, decision matches, pattern matches
+- Warning detection: security issues, deprecated patterns, complexity
+- Conflict detection: checks code against recorded architectural decisions
+- Weighted scoring: 50% codebase, 30% decisions, 20% patterns      

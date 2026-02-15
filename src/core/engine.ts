@@ -15,9 +15,10 @@ import { ADRExporter, type ADRExportOptions } from './adr-exporter.js';
 import { FeatureContextManager } from './feature-context.js';
 import { LivingDocumentationEngine } from './living-docs/index.js';
 import { ContextRotPrevention } from './context-rot/index.js';
+import { ConfidenceScorer } from './confidence/index.js';
 import { detectLanguage, getPreview, countLines } from '../utils/files.js';
 import type { MemoryLayerConfig, AssembledContext, Decision, ProjectSummary, SearchResult, CodeSymbol, SymbolKind, ActiveFeatureContext, HotContext } from '../types/index.js';
-import type { ArchitectureDoc, ComponentDoc, DailyChangelog, ChangelogOptions, ValidationResult, ActivityResult, UndocumentedItem, ContextHealth, CompactionResult, CompactionOptions, CriticalContext, DriftResult } from '../types/documentation.js';
+import type { ArchitectureDoc, ComponentDoc, DailyChangelog, ChangelogOptions, ValidationResult, ActivityResult, UndocumentedItem, ContextHealth, CompactionResult, CompactionOptions, CriticalContext, DriftResult, ConfidenceResult, ConfidenceLevel, ConfidenceSources, ConflictResult } from '../types/documentation.js';
 import type Database from 'better-sqlite3';
 
 export class MemoryLayerEngine {
@@ -36,6 +37,7 @@ export class MemoryLayerEngine {
   private featureContextManager: FeatureContextManager;
   private livingDocs: LivingDocumentationEngine;
   private contextRotPrevention: ContextRotPrevention;
+  private confidenceScorer: ConfidenceScorer;
   private initialized = false;
 
   constructor(config: MemoryLayerConfig) {
@@ -97,6 +99,12 @@ export class MemoryLayerEngine {
 
     // Phase 7: Initialize context rot prevention
     this.contextRotPrevention = new ContextRotPrevention(this.db, config.maxTokens);
+
+    // Phase 8: Initialize confidence scorer
+    this.confidenceScorer = new ConfidenceScorer(
+      this.tier2,
+      this.indexer.getEmbeddingGenerator()
+    );
 
     // Register this project
     const projectInfo = this.projectManager.registerProject(config.projectPath);
@@ -868,6 +876,33 @@ export class MemoryLayerEngine {
   // Get context summary for AI (includes critical context and drift warnings)
   getContextSummaryForAI(): string {
     return this.contextRotPrevention.getContextSummaryForAI();
+  }
+
+  // ========== Phase 8: Confidence Scoring ==========
+
+  // Get confidence score for code
+  async getConfidence(code: string, context?: string): Promise<ConfidenceResult> {
+    return this.confidenceScorer.getConfidence(code, context);
+  }
+
+  // List sources for code suggestion
+  async listConfidenceSources(code: string, context?: string, includeSnippets?: boolean): Promise<ConfidenceSources> {
+    return this.confidenceScorer.listSources(code, context, includeSnippets);
+  }
+
+  // Check for conflicts with past decisions
+  async checkCodeConflicts(code: string): Promise<ConflictResult> {
+    return this.confidenceScorer.checkConflicts(code);
+  }
+
+  // Get confidence level indicator emoji
+  getConfidenceIndicator(level: ConfidenceLevel): string {
+    return ConfidenceScorer.getIndicator(level);
+  }
+
+  // Format confidence result for display
+  formatConfidenceResult(result: ConfidenceResult): string {
+    return ConfidenceScorer.formatResult(result);
   }
 
   shutdown(): void {
