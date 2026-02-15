@@ -5,7 +5,8 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "memorylayer": "dist/index.js"
+    "memorylayer": "dist/index.js",
+    "memcode": "dist/agent.js"
   },
   "scripts": {
     "build": "node esbuild.config.js",
@@ -13,6 +14,8 @@
     "build:all": "npm run build && npm run build:benchmark",
     "dev": "node --watch dist/index.js",
     "start": "node dist/index.js",
+    "agent": "node dist/agent.js",
+    "memcode": "node dist/agent.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
@@ -22,7 +25,10 @@
     "benchmark:publication": "npm run build:all && node dist/benchmark/publication-benchmark.js --publication",
     "benchmark:standard": "npm run build:all && node dist/benchmark/publication-benchmark.js --preset standard",
     "benchmark:download": "npm run build:benchmark && node dist/benchmark/project-downloader.js",
-    "benchmark:analyze": "npm run build:benchmark && node dist/benchmark/analyze-results.js"
+    "benchmark:analyze": "npm run build:benchmark && node dist/benchmark/analyze-results.js",
+    "benchmark:opencode": "npm run build:all && node dist/benchmark/opencode-benchmark.js",
+    "benchmark:opencode:quick": "npm run build:all && node dist/benchmark/opencode-benchmark.js --iterations 1",
+    "benchmark:opencode:full": "npm run build:all && node dist/benchmark/opencode-benchmark.js --iterations 5"
   },
   "keywords": [
     "mcp",
@@ -31,7 +37,10 @@
     "context",
     "codebase",
     "claude",
-    "embeddings"
+    "embeddings",
+    "agent",
+    "coding-assistant",
+    "llm"
   ],
   "author": "",
   "license": "UNLICENSED",

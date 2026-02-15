@@ -1,16 +1,11 @@
 import { build } from 'esbuild';
 
-await build({
-  entryPoints: ['src/index.ts'],
+const commonOptions = {
   bundle: true,
   platform: 'node',
   target: 'node18',
-  outfile: 'dist/index.js',
   format: 'esm',
   sourcemap: true,
-  banner: {
-    js: '#!/usr/bin/env node'
-  },
   external: [
     'better-sqlite3',    // Native module
     '@xenova/transformers', // Large, keep external
@@ -18,6 +13,20 @@ await build({
     'glob',              // Keep external
     'web-tree-sitter'    // WASM module
   ]
+};
+
+// Build main MCP server
+await build({
+  ...commonOptions,
+  entryPoints: ['src/index.ts'],
+  outfile: 'dist/index.js',
 });
 
-console.log('Build complete!');
+// Build memcode agent
+await build({
+  ...commonOptions,
+  entryPoints: ['src/agent/index.ts'],
+  outfile: 'dist/agent.js',
+});
+
+console.log('Build complete! (memorylayer + memcode)');
