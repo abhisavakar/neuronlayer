@@ -17,6 +17,7 @@ This folder contains the complete product documentation for MemoryLayer v1.0.
 | Document | Description | Audience |
 |----------|-------------|----------|
 | [QUICKSTART.md](./QUICKSTART.md) | 2-minute setup guide | End users |
+| [CLAUDE-CODE-SETUP.md](./CLAUDE-CODE-SETUP.md) | Claude Code (CLI) integration guide | End users |
 | [OPENCODE-SETUP.md](./OPENCODE-SETUP.md) | OpenCode integration guide | End users |
 | [BENEFITS.md](./BENEFITS.md) | Simple explanation of benefits | Everyone |
 | [RESULTS.md](./RESULTS.md) | Quality comparison results | Everyone |
@@ -37,6 +38,8 @@ This folder contains the complete product documentation for MemoryLayer v1.0.
 
 ### For Users
 - **Getting Started:** [QUICKSTART.md](./QUICKSTART.md)
+- **Claude Code Setup:** [CLAUDE-CODE-SETUP.md](./CLAUDE-CODE-SETUP.md)
+- **OpenCode Setup:** [OPENCODE-SETUP.md](./OPENCODE-SETUP.md)
 - **Available Tools:** [API.md#mcp-tools](./API.md#mcp-tools)
 
 ### For Developers
@@ -102,6 +105,7 @@ This folder contains the complete product documentation for MemoryLayer v1.0.
 - [x] Team/author attribution on decisions
 - [x] ADR export (MADR, Nygard, Simple formats)
 - [x] Full CLI for project management
+- [x] Claude Code integration
 - [x] OpenCode integration
 
 ---
