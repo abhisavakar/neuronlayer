@@ -98,6 +98,43 @@ export function formatToolCall(name: string, args: Record<string, unknown>): str
 
 export function formatToolResult(name: string, result: unknown, isError: boolean): string {
   const icon = isError ? `${c.red}✗${c.reset}` : `${c.green}✓${c.reset}`;
+
+  // Check if result has diff information (file operations)
+  const resultObj = result as Record<string, unknown>;
+  if (resultObj && typeof resultObj === 'object') {
+    // Handle file write/edit with diff
+    if (resultObj.diffFormatted && typeof resultObj.diffFormatted === 'string') {
+      const lines: string[] = [];
+      lines.push(`${c.dim}└─${c.reset} ${icon} ${c.gray}${resultObj.message || 'Success'}${c.reset}`);
+      if (resultObj.stats) {
+        const stats = resultObj.stats as { additions: number; deletions: number };
+        lines.push(`   ${c.green}+${stats.additions}${c.reset} ${c.red}-${stats.deletions}${c.reset}`);
+      }
+      lines.push('');
+      lines.push(resultObj.diffFormatted as string);
+      return lines.join('\n');
+    }
+
+    // Handle search/replace preview
+    if (resultObj.searchReplacePreview && typeof resultObj.searchReplacePreview === 'string') {
+      const lines: string[] = [];
+      lines.push(`${c.dim}└─${c.reset} ${icon} ${c.gray}${resultObj.message || 'Success'}${c.reset}`);
+      lines.push('');
+      lines.push(resultObj.searchReplacePreview as string);
+      return lines.join('\n');
+    }
+
+    // Handle git diff
+    if (name === 'git_diff' && resultObj.diffFormatted) {
+      const lines: string[] = [];
+      lines.push(`${c.dim}└─${c.reset} ${icon} ${c.gray}Git diff${resultObj.staged ? ' (staged)' : ''}${c.reset}`);
+      lines.push('');
+      lines.push(resultObj.diffFormatted as string);
+      return lines.join('\n');
+    }
+  }
+
+  // Default formatting
   const preview = typeof result === 'string'
     ? result.slice(0, 80)
     : JSON.stringify(result).slice(0, 80);

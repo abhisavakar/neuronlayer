@@ -5,12 +5,13 @@ import { AnthropicProvider } from './providers/anthropic.js';
 import { OpenRouterProvider } from './providers/openrouter.js';
 import { OpenAIProvider } from './providers/openai.js';
 
-export type ProviderName = 'anthropic' | 'openrouter' | 'openai' | 'local';
+export type ProviderName = 'anthropic' | 'openrouter' | 'openai' | 'azure' | 'local';
 
 export interface ProviderConfig {
   anthropic?: LLMProviderConfig;
   openrouter?: LLMProviderConfig;
   openai?: LLMProviderConfig;
+  azure?: LLMProviderConfig;
   local?: LLMProviderConfig;
 }
 
@@ -22,6 +23,12 @@ export function createProvider(name: ProviderName, config: LLMProviderConfig): L
       return new OpenRouterProvider(config);
     case 'openai':
       return new OpenAIProvider(config);
+    case 'azure':
+      // Azure OpenAI - uses OpenAI-compatible API with Azure endpoint
+      return new OpenAIProvider({
+        ...config,
+        baseURL: config.baseURL || 'https://swedencentral.api.cognitive.microsoft.com/openai/v1/'
+      });
     case 'local':
       // Use OpenAI-compatible API for local models (Ollama, etc.)
       return new OpenAIProvider({
@@ -40,6 +47,10 @@ export function detectProviderFromModel(model: string): ProviderName {
   }
   if (model.startsWith('gpt') || model.startsWith('o1') || model.startsWith('openai/')) {
     return model.includes('/') ? 'openrouter' : 'openai';
+  }
+  if (model.startsWith('Kimi') || model.startsWith('kimi')) {
+    // Kimi models default to Azure
+    return 'azure';
   }
   if (model.includes('/')) {
     // Assumes format like "meta-llama/llama-3.1-70b" for OpenRouter
@@ -68,7 +79,7 @@ export function parseModelString(modelString: string): { provider: ProviderName;
 
   // Check if first part is a provider name
   const firstPart = (parts[0] || '').toLowerCase() as ProviderName;
-  if (['anthropic', 'openrouter', 'openai', 'local'].includes(firstPart)) {
+  if (['anthropic', 'openrouter', 'openai', 'azure', 'local'].includes(firstPart)) {
     return {
       provider: firstPart,
       model: parts.slice(1).join('/') || modelString
@@ -95,6 +106,9 @@ const MODEL_COSTS: Record<string, { input: number; output: number }> = {
   'gpt-4-turbo': { input: 10, output: 30 },
   'o1': { input: 15, output: 60 },
   'o1-mini': { input: 3, output: 12 },
+  // Azure / Kimi
+  'Kimi-K2.5': { input: 0, output: 0 },  // Free tier on Azure
+  'kimi-k2.5': { input: 0, output: 0 },
   // OpenRouter variants
   'anthropic/claude-sonnet-4-20250514': { input: 3, output: 15 },
   'anthropic/claude-3.5-sonnet': { input: 3, output: 15 },

@@ -15,6 +15,7 @@ import {
   loadConfig,
   getApiKey,
   getBaseURL,
+  getAzureConfig,
   getConfigDir,
   getProjectDataDir
 } from './config/index.js';
@@ -53,24 +54,18 @@ async function main(): Promise<void> {
   // Resolve project path
   const projectPath = resolve(args.projectPath);
 
-  // Hardcoded for testing - Azure OpenAI with Kimi
-  let effectiveProvider = args.provider || 'openai';
-  process.env.OPENAI_BASE_URL = process.env.OPENAI_BASE_URL || 'https://swedencentral.api.cognitive.microsoft.com/openai/v1';
-
-  // Determine model and provider - hardcoded for testing
+  // Azure OpenAI with Kimi - hardcoded for reliability
+  const finalProvider = 'openai' as const;
   const model = args.model || 'Kimi-K2.5';
-  const providerName = 'openai';
+  const baseURL = 'https://swedencentral.api.cognitive.microsoft.com/openai/v1';
+  // Use config file key first, then fallback to hardcoded (env var may be stale)
+  const configKey = loadConfig().providers?.azure?.apiKey;
+  const apiKey = args.apiKey || (configKey && configKey.length > 10 ? configKey : null) || '91hH1JEzd1G83v4vgKHDjsAEsOsSl0fxmE7eDv7vqNS7Lvdc2vo3JQQJ99CBACfhMk5XJ3w3AAAAACOG6DCi';
 
-  // Use detected provider or fall back to model string provider
-  const finalProvider = effectiveProvider || providerName;
-
-  // Get API key - hardcoded for testing
-  let apiKey: string | undefined = args.apiKey || '91hH1JEzd1G83v4vgKHDjsAEsOsSl0fxmE7eDv7vqNS7Lvdc2vo3JQQJ99CBACfhMk5XJ3w3AAAAACOG6DCi';
-
-  if (!apiKey && finalProvider !== 'local') {
-    console.error(`\n❌ No API key found for ${finalProvider}`);
+  if (!apiKey) {
+    console.error(`\n❌ No API key found`);
     console.error(`\nSet it via:`);
-    console.error(`  - Environment variable: ${finalProvider.toUpperCase()}_API_KEY`);
+    console.error(`  - Environment variable: AZURE_OPENAI_API_KEY`);
     console.error(`  - Command line: --api-key <key>`);
     console.error(`  - Config file: ~/.memcode/config.json\n`);
     process.exit(1);
@@ -98,17 +93,14 @@ async function main(): Promise<void> {
   }
 
   // Create LLM provider
-  const selectedProvider = finalProvider as 'anthropic' | 'openrouter' | 'openai' | 'local';
-  const baseURL = getBaseURL(selectedProvider as 'anthropic' | 'openrouter' | 'openai');
-
   const providerConfig: LLMProviderConfig = {
     apiKey: apiKey || '',
     model,
     maxTokens: config.agent.maxTokensPerTurn,
-    baseURL: baseURL ?? undefined
+    baseURL
   };
 
-  const provider = createProvider(selectedProvider, providerConfig);
+  const provider = createProvider(finalProvider, providerConfig);
 
   // Create orchestrator
   const orchestrator = new Orchestrator({

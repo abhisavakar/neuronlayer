@@ -6,12 +6,16 @@ import { handleToolCall, toolDefinitions } from '../../server/tools.js';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'fs';
 import { execSync } from 'child_process';
 import { dirname, join, isAbsolute, resolve } from 'path';
+import { createFileDiff, formatDiff, formatSearchReplaceDiff, formatUnifiedDiff, type FileDiff } from '../ui/diff.js';
 
 export interface ExecutorConfig {
   projectPath: string;
   allowShell?: boolean;
   allowFileWrite?: boolean;
   timeout?: number;
+  showDiffs?: boolean;
+  diffContextLines?: number;
+  diffMaxLines?: number;
 }
 
 export class ToolExecutor {
@@ -25,6 +29,9 @@ export class ToolExecutor {
       allowShell: true,
       allowFileWrite: true,
       timeout: 30000,
+      showDiffs: true,
+      diffContextLines: 3,
+      diffMaxLines: 50,
       ...config
     };
     this.builtinTools = this.createBuiltinTools();
@@ -309,7 +316,25 @@ export class ToolExecutor {
         if (!existsSync(dir)) {
           mkdirSync(dir, { recursive: true });
         }
-        writeFileSync(filePath, args.content as string);
+
+        // Get old content for diff
+        const oldContent = existsSync(filePath) ? readFileSync(filePath, 'utf-8') : null;
+        const newContent = args.content as string;
+
+        // Generate diff
+        let diffInfo: { diff?: FileDiff; diffFormatted?: string } = {};
+        if (this.config.showDiffs) {
+          const diff = createFileDiff(args.path as string, oldContent, newContent);
+          diffInfo = {
+            diff,
+            diffFormatted: formatDiff(diff, {
+              contextLines: this.config.diffContextLines,
+              maxLines: this.config.diffMaxLines
+            })
+          };
+        }
+
+        writeFileSync(filePath, newContent);
 
         // Track the edit in MemoryLayer
         this.engine.trackFileEdited(args.path as string, `File created/updated`, []);
@@ -317,7 +342,10 @@ export class ToolExecutor {
         return {
           path: args.path,
           success: true,
-          message: `File written successfully`
+          message: `File written successfully`,
+          operation: oldContent === null ? 'created' : 'modified',
+          stats: diffInfo.diff?.stats,
+          ...diffInfo
         };
       }
 
@@ -339,6 +367,21 @@ export class ToolExecutor {
         }
 
         const newContent = content.replace(search, replace);
+
+        // Generate diff
+        let diffInfo: { diff?: FileDiff; diffFormatted?: string; searchReplacePreview?: string } = {};
+        if (this.config.showDiffs) {
+          const diff = createFileDiff(args.path as string, content, newContent);
+          diffInfo = {
+            diff,
+            diffFormatted: formatDiff(diff, {
+              contextLines: this.config.diffContextLines,
+              maxLines: this.config.diffMaxLines
+            }),
+            searchReplacePreview: formatSearchReplaceDiff(args.path as string, content, search, replace)
+          };
+        }
+
         writeFileSync(filePath, newContent);
 
         // Track the edit
@@ -347,7 +390,9 @@ export class ToolExecutor {
         return {
           path: args.path,
           success: true,
-          message: `File edited successfully`
+          message: `File edited successfully`,
+          stats: diffInfo.diff?.stats,
+          ...diffInfo
         };
       }
 
@@ -529,8 +574,14 @@ export class ToolExecutor {
           encoding: 'utf-8'
         });
 
+        // Format diff with colors if enabled
+        const diffFormatted = this.config.showDiffs
+          ? formatUnifiedDiff(diff, { maxLines: this.config.diffMaxLines })
+          : undefined;
+
         return {
           diff: diff.slice(0, 50000),
+          diffFormatted,
           staged,
           file: file || 'all'
         };

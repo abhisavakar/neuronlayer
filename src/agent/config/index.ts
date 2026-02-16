@@ -6,10 +6,12 @@ import { homedir } from 'os';
 
 export interface MemcodeConfig {
   defaultModel: string;
+  defaultProvider: string;
   providers: {
     anthropic?: { apiKey: string };
     openrouter?: { apiKey: string };
-    openai?: { apiKey: string };
+    openai?: { apiKey: string; baseURL?: string };
+    azure?: { apiKey: string; baseURL: string; deploymentName: string };
     local?: { baseURL: string };
   };
   agent: {
@@ -22,12 +24,35 @@ export interface MemcodeConfig {
     showCosts: boolean;
     showTokens: boolean;
     colorOutput: boolean;
+    showDiffs: boolean;
+    diffContextLines: number;
+    diffMaxLines: number;
+  };
+  keybinds: {
+    submit: string;
+    newline: string;
+    exit: string;
+    clear: string;
+    help: string;
+  };
+  permissions: {
+    allowShell: boolean;
+    allowFileWrite: boolean;
+    confirmFileWrite: boolean;
+    confirmShell: boolean;
   };
 }
 
 const DEFAULT_CONFIG: MemcodeConfig = {
-  defaultModel: 'claude-sonnet-4-20250514',
-  providers: {},
+  defaultModel: 'Kimi-K2.5',
+  defaultProvider: 'azure',
+  providers: {
+    azure: {
+      apiKey: '',  // Set via AZURE_OPENAI_API_KEY env var
+      baseURL: 'https://swedencentral.api.cognitive.microsoft.com/openai/v1/',
+      deploymentName: 'Kimi-K2.5'
+    }
+  },
   agent: {
     maxTokensPerTurn: 8192,
     maxTurns: 10,
@@ -37,7 +62,23 @@ const DEFAULT_CONFIG: MemcodeConfig = {
   ui: {
     showCosts: true,
     showTokens: true,
-    colorOutput: true
+    colorOutput: true,
+    showDiffs: true,
+    diffContextLines: 3,
+    diffMaxLines: 50
+  },
+  keybinds: {
+    submit: 'enter',
+    newline: 'shift+enter',
+    exit: 'ctrl+c',
+    clear: 'ctrl+l',
+    help: 'ctrl+h'
+  },
+  permissions: {
+    allowShell: true,
+    allowFileWrite: true,
+    confirmFileWrite: false,
+    confirmShell: false
   }
 };
 
@@ -94,6 +135,14 @@ export function loadConfig(): MemcodeConfig {
       ui: {
         ...DEFAULT_CONFIG.ui,
         ...data.ui
+      },
+      keybinds: {
+        ...DEFAULT_CONFIG.keybinds,
+        ...data.keybinds
+      },
+      permissions: {
+        ...DEFAULT_CONFIG.permissions,
+        ...data.permissions
       }
     };
   } catch {
@@ -106,12 +155,13 @@ export function saveConfig(config: MemcodeConfig): void {
   writeFileSync(configPath, JSON.stringify(config, null, 2));
 }
 
-export function getApiKey(provider: 'anthropic' | 'openrouter' | 'openai'): string | null {
+export function getApiKey(provider: 'anthropic' | 'openrouter' | 'openai' | 'azure'): string | null {
   // Check environment variables first
-  const envVars: Record<'anthropic' | 'openrouter' | 'openai', string> = {
+  const envVars: Record<'anthropic' | 'openrouter' | 'openai' | 'azure', string> = {
     anthropic: 'ANTHROPIC_API_KEY',
     openrouter: 'OPENROUTER_API_KEY',
-    openai: 'OPENAI_API_KEY'
+    openai: 'OPENAI_API_KEY',
+    azure: 'AZURE_OPENAI_API_KEY'
   };
 
   // Check for Azure Foundry key first for Anthropic
@@ -129,7 +179,7 @@ export function getApiKey(provider: 'anthropic' | 'openrouter' | 'openai'): stri
   return config.providers[provider]?.apiKey || null;
 }
 
-export function getBaseURL(provider: 'anthropic' | 'openrouter' | 'openai'): string | null {
+export function getBaseURL(provider: 'anthropic' | 'openrouter' | 'openai' | 'azure'): string | null {
   // Check for Azure Foundry URL for Anthropic
   if (provider === 'anthropic') {
     const foundryURL = process.env['ANTHROPIC_FOUNDRY_BASE_URL'];
@@ -142,7 +192,35 @@ export function getBaseURL(provider: 'anthropic' | 'openrouter' | 'openai'): str
     if (baseURL) return baseURL;
   }
 
+  // Check for Azure OpenAI
+  if (provider === 'azure') {
+    const baseURL = process.env['AZURE_OPENAI_BASE_URL'];
+    if (baseURL) return baseURL;
+    // Check config
+    const config = loadConfig();
+    return config.providers.azure?.baseURL || null;
+  }
+
   return null;
+}
+
+export function getAzureConfig(): { apiKey: string; baseURL: string; deploymentName: string } | null {
+  const config = loadConfig();
+  const azure = config.providers.azure;
+
+  // Get API key from env or config
+  const apiKey = process.env['AZURE_OPENAI_API_KEY'] || azure?.apiKey;
+  if (!apiKey) return null;
+
+  // Get base URL from env or config
+  const baseURL = process.env['AZURE_OPENAI_BASE_URL'] || azure?.baseURL;
+  if (!baseURL) return null;
+
+  // Get deployment name from env or config
+  const deploymentName = process.env['AZURE_OPENAI_DEPLOYMENT'] || azure?.deploymentName;
+  if (!deploymentName) return null;
+
+  return { apiKey, baseURL, deploymentName };
 }
 
 export function setApiKey(provider: 'anthropic' | 'openrouter' | 'openai', apiKey: string): void {
@@ -236,14 +314,16 @@ Usage:
 
 Options:
   -p, --project <path>    Project directory (default: current directory)
-  -m, --model <model>     LLM model to use (default: claude-sonnet-4-20250514)
+  -m, --model <model>     LLM model to use (default: Kimi-K2.5)
   -c, --continue [id]     Continue last session or specific session ID
   --api-key <key>         API key for the provider
-  --provider <name>       Provider: anthropic, openrouter, openai, local
+  --provider <name>       Provider: azure, anthropic, openrouter, openai, local
   -h, --help              Show this help message
   -v, --version           Show version
 
 Environment Variables:
+  AZURE_OPENAI_API_KEY    Azure OpenAI API key (default provider)
+  AZURE_OPENAI_BASE_URL   Azure OpenAI endpoint
   ANTHROPIC_API_KEY       Anthropic API key
   OPENROUTER_API_KEY      OpenRouter API key
   OPENAI_API_KEY          OpenAI API key
@@ -251,7 +331,24 @@ Environment Variables:
 Config File:
   ~/.memcode/config.json  Persistent configuration
 
+  Example config:
+  {
+    "defaultModel": "Kimi-K2.5",
+    "defaultProvider": "azure",
+    "providers": {
+      "azure": {
+        "baseURL": "https://swedencentral.api.cognitive.microsoft.com/openai/v1/",
+        "deploymentName": "Kimi-K2.5"
+      }
+    },
+    "ui": {
+      "showDiffs": true,
+      "showCosts": true
+    }
+  }
+
 Models:
+  Azure:       Kimi-K2.5 (default)
   Anthropic:   claude-sonnet-4-20250514, claude-3.5-sonnet, claude-3-opus
   OpenAI:      gpt-4o, gpt-4o-mini, o1, o1-mini
   OpenRouter:  200+ models (prefix with provider e.g. anthropic/claude-3.5-sonnet)
@@ -267,7 +364,12 @@ In-Session Commands:
   /help       Show available commands
   /model      Show or switch model
   /context    Show current context
+  /feature    Set feature context
   /cost       Show cost summary
+  /diff       Toggle diff display
+  /save       Save session
+  /sessions   List saved sessions
+  /clear      Clear conversation
   /exit       Exit memcode
 `);
 }
