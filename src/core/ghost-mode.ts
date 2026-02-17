@@ -223,7 +223,7 @@ export class GhostMode {
     }
   }
 
-  private async findRelatedPatterns(filePath: string): Promise<string[]> {
+  private findRelatedPatterns(filePath: string): string[] {
     // Extract patterns from file extension and path
     const patterns: string[] = [];
 
@@ -288,17 +288,15 @@ export class GhostMode {
     }
 
     // Check if decision opposes this technology
-    const isNegative = DECISION_INDICATORS.some(indicator => {
-      const negativePattern = new RegExp(
-        `(don't|do not|never|avoid|not)\\s+.{0,30}\\b(${matchedTerms.join('|')})\\b`,
-        'i'
-      );
-      const preferOtherPattern = new RegExp(
-        `(instead of|rather than)\\s+.{0,30}\\b(${matchedTerms.join('|')})\\b`,
-        'i'
-      );
-      return negativePattern.test(decisionText) || preferOtherPattern.test(decisionText);
-    });
+    const negativePattern = new RegExp(
+      `(don't|do not|never|avoid|not)\\s+.{0,30}\\b(${matchedTerms.join('|')})\\b`,
+      'i'
+    );
+    const preferOtherPattern = new RegExp(
+      `(instead of|rather than)\\s+.{0,30}\\b(${matchedTerms.join('|')})\\b`,
+      'i'
+    );
+    const isNegative = negativePattern.test(decisionText) || preferOtherPattern.test(decisionText);
 
     if (!isNegative) {
       // Check if decision uses a different technology in the same category

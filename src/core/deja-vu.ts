@@ -10,6 +10,7 @@ import type Database from 'better-sqlite3';
 import type { EmbeddingGenerator } from '../indexing/embeddings.js';
 import type { Tier2Storage } from '../storage/tier2.js';
 import { createHash } from 'crypto';
+import { formatTimeAgoWithContext } from '../utils/time.js';
 
 export interface DejaVuMatch {
   type: 'query' | 'solution' | 'fix' | 'pattern';
@@ -141,7 +142,7 @@ export class DejaVuDetector {
             when: new Date(row.last_used * 1000),
             file: primaryFile,
             snippet: row.query_text.slice(0, 100),
-            message: this.formatTimeAgo(new Date(row.last_used * 1000), 'asked a similar question', primaryFile),
+            message: formatTimeAgoWithContext(new Date(row.last_used * 1000), 'asked a similar question', primaryFile),
             context: resultFiles.length > 1 ? `Also involved: ${resultFiles.slice(1, 4).join(', ')}` : undefined,
           });
         }
@@ -194,7 +195,7 @@ export class DejaVuDetector {
             when: new Date(usage.timestamp * 1000),
             file: result.file,
             snippet: result.preview.slice(0, 150),
-            message: this.formatTimeAgo(new Date(usage.timestamp * 1000), 'worked on this', result.file),
+            message: formatTimeAgoWithContext(new Date(usage.timestamp * 1000), 'worked on this', result.file),
             context: usage.query ? `For: "${usage.query.slice(0, 50)}..."` : undefined,
           });
         }
@@ -224,7 +225,7 @@ export class DejaVuDetector {
         FROM usage_events ue
         LEFT JOIN query_patterns qp ON ue.query = qp.query_text
         WHERE ue.event_type = 'query'
-          AND ue.query LIKE '%error%' OR ue.query LIKE '%fix%' OR ue.query LIKE '%bug%'
+          AND (ue.query LIKE '%error%' OR ue.query LIKE '%fix%' OR ue.query LIKE '%bug%')
           AND ue.timestamp > unixepoch() - ? * 86400
         ORDER BY ue.timestamp DESC
         LIMIT 100
@@ -252,7 +253,7 @@ export class DejaVuDetector {
             when: new Date(row.timestamp * 1000),
             file,
             snippet: row.query.slice(0, 100),
-            message: this.formatTimeAgo(new Date(row.timestamp * 1000), 'encountered a similar issue', file),
+            message: formatTimeAgoWithContext(new Date(row.timestamp * 1000), 'encountered a similar issue', file),
           });
         }
       }
@@ -392,34 +393,6 @@ export class DejaVuDetector {
     ];
 
     return errorPatterns.some(pattern => pattern.test(query));
-  }
-
-  private formatTimeAgo(date: Date, action: string, file: string): string {
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    const diffWeeks = Math.floor(diffDays / 7);
-    const diffMonths = Math.floor(diffDays / 30);
-
-    let timeAgo: string;
-    if (diffDays === 0) {
-      timeAgo = 'earlier today';
-    } else if (diffDays === 1) {
-      timeAgo = 'yesterday';
-    } else if (diffDays < 7) {
-      timeAgo = `${diffDays} days ago`;
-    } else if (diffWeeks === 1) {
-      timeAgo = '1 week ago';
-    } else if (diffWeeks < 4) {
-      timeAgo = `${diffWeeks} weeks ago`;
-    } else if (diffMonths === 1) {
-      timeAgo = '1 month ago';
-    } else {
-      timeAgo = `${diffMonths} months ago`;
-    }
-
-    const fileName = file.split(/[/\\]/).pop() || file;
-    return `You ${action} in ${fileName} ${timeAgo}`;
   }
 
   private getRecencyScore(date: Date): number {

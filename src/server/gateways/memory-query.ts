@@ -10,28 +10,7 @@ import type { MemoryLayerEngine } from '../../core/engine.js';
 import type { MemoryQueryInput, MemoryQueryResponse, MemoryQueryAction } from './types.js';
 import { detectQueryAction, parseQuery, isFilePath } from './router.js';
 import { aggregateQueryResults, mergeSearchResults } from './aggregator.js';
-
-/**
- * Format a date as a human-readable "time ago" string
- */
-function formatTimeAgo(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / (1000 * 60));
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  const diffWeeks = Math.floor(diffDays / 7);
-
-  if (diffMins < 1) return 'just now';
-  if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
-  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-  if (diffDays === 1) return 'yesterday';
-  if (diffDays < 7) return `${diffDays} days ago`;
-  if (diffWeeks === 1) return '1 week ago';
-  if (diffWeeks < 4) return `${diffWeeks} weeks ago`;
-
-  return date.toLocaleDateString();
-}
+import { formatTimeAgo } from '../../utils/time.js';
 
 /**
  * Handle a memory_query gateway call
@@ -91,7 +70,9 @@ async function handleContextQuery(
 
   // Notify ghost mode of file access for silent tracking
   if (input.file) {
-    engine.notifyFileAccess(input.file).catch(() => {});
+    engine.notifyFileAccess(input.file).catch(err => {
+      console.error('Ghost mode file access error:', err);
+    });
   }
 
   // Run context, search, and déjà vu in parallel

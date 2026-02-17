@@ -11,9 +11,8 @@
  * Solves: Hallucination detection, Security vulnerabilities (1.7x more in AI code)
  */
 
-import { existsSync, readFileSync, readdirSync } from 'fs';
-import { join, dirname, basename, extname } from 'path';
-import type { Tier2Storage } from '../storage/tier2.js';
+import { existsSync, readFileSync } from 'fs';
+import { join, dirname, extname } from 'path';
 import type { PatternValidationResult, ConflictResult } from '../types/documentation.js';
 
 // ============================================================================
@@ -322,13 +321,11 @@ const IMPORT_PATTERNS = {
 
 export class CodeVerifier {
   private projectPath: string;
-  private tier2: Tier2Storage;
   private packageJson: Record<string, unknown> | null = null;
   private nodeModulesPath: string;
 
-  constructor(projectPath: string, tier2: Tier2Storage) {
+  constructor(projectPath: string) {
     this.projectPath = projectPath;
-    this.tier2 = tier2;
     this.nodeModulesPath = join(projectPath, 'node_modules');
     this.loadPackageJson();
   }

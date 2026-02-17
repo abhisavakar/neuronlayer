@@ -161,7 +161,7 @@ export class MemoryLayerEngine {
     );
 
     // Phase 13: Initialize Code Verifier (pre-commit quality gate)
-    this.codeVerifier = new CodeVerifier(config.projectPath, this.tier2);
+    this.codeVerifier = new CodeVerifier(config.projectPath);
 
     // Register this project
     const projectInfo = this.projectManager.registerProject(config.projectPath);
