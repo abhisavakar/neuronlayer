@@ -7,7 +7,12 @@ import {
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { MemoryLayerEngine } from '../core/engine.js';
-import { toolDefinitions, handleToolCall } from './tools.js';
+import {
+  allToolDefinitions,
+  handleGatewayCall,
+  isGatewayTool,
+} from './gateways/index.js';
+import { handleToolCall } from './tools.js';
 import { resourceDefinitions, handleResourceRead } from './resources.js';
 import type { MemoryLayerConfig } from '../types/index.js';
 
@@ -35,10 +40,10 @@ export class MCPServer {
   }
 
   private setupHandlers(): void {
-    // List available tools
+    // List available tools - now using gateway pattern (10 tools instead of 51)
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
-        tools: toolDefinitions.map(t => ({
+        tools: allToolDefinitions.map(t => ({
           name: t.name,
           description: t.description,
           inputSchema: t.inputSchema
@@ -46,12 +51,20 @@ export class MCPServer {
       };
     });
 
-    // Handle tool calls
+    // Handle tool calls - route to gateways or standalone handlers
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
 
       try {
-        const result = await handleToolCall(this.engine, name, args || {});
+        let result;
+
+        // Check if it's a gateway tool
+        if (isGatewayTool(name)) {
+          result = await handleGatewayCall(this.engine, name, args || {});
+        } else {
+          // Standalone tools route to existing handler
+          result = await handleToolCall(this.engine, name, args || {});
+        }
 
         return {
           content: [

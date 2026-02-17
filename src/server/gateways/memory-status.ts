@@ -1,0 +1,453 @@
+/**
+ * Memory Status Gateway
+ *
+ * Routes to: get_project_summary, what_happened, what_changed, get_architecture,
+ * get_changelog, validate_docs, get_context_health, list_patterns,
+ * get_architecture_stats, find_undocumented, get_critical_context, get_learning_stats
+ */
+
+import type { MemoryLayerEngine } from '../../core/engine.js';
+import type { MemoryStatusInput, MemoryStatusResponse, MemoryStatusAction } from './types.js';
+import { detectStatusAction, getStatusGathers } from './router.js';
+import { aggregateStatusResults } from './aggregator.js';
+
+/**
+ * Handle a memory_status gateway call
+ */
+export async function handleMemoryStatus(
+  engine: MemoryLayerEngine,
+  input: MemoryStatusInput
+): Promise<MemoryStatusResponse> {
+  const action = detectStatusAction(input);
+  const sourcesUsed: string[] = [];
+
+  // Handle specific actions
+  switch (action) {
+    case 'summary':
+      return handleProjectSummary(engine, input, sourcesUsed);
+
+    case 'happened':
+      return handleWhatHappened(engine, input, sourcesUsed);
+
+    case 'changed':
+      return handleWhatChanged(engine, input, sourcesUsed);
+
+    case 'architecture':
+      return handleArchitecture(engine, input, sourcesUsed);
+
+    case 'changelog':
+      return handleChangelog(engine, input, sourcesUsed);
+
+    case 'health':
+      return handleContextHealth(engine, input, sourcesUsed);
+
+    case 'patterns':
+      return handlePatterns(engine, input, sourcesUsed);
+
+    case 'stats':
+      return handleArchitectureStats(engine, input, sourcesUsed);
+
+    case 'undocumented':
+      return handleUndocumented(engine, input, sourcesUsed);
+
+    case 'critical':
+      return handleCriticalContext(engine, input, sourcesUsed);
+
+    case 'learning':
+      return handleLearningStats(engine, input, sourcesUsed);
+
+    default:
+      // Default to project summary
+      return handleProjectSummary(engine, input, sourcesUsed);
+  }
+}
+
+/**
+ * Get project summary
+ */
+async function handleProjectSummary(
+  engine: MemoryLayerEngine,
+  input: MemoryStatusInput,
+  sourcesUsed: string[]
+): Promise<MemoryStatusResponse> {
+  sourcesUsed.push('get_project_summary');
+
+  const summary = engine.getProjectSummary();
+
+  // Also get learning stats for a fuller picture
+  sourcesUsed.push('get_learning_stats');
+  const learningStats = engine.getLearningStats();
+
+  return {
+    sources_used: sourcesUsed,
+    project: {
+      name: summary.name,
+      description: summary.description,
+      languages: summary.languages,
+      total_files: summary.totalFiles,
+      total_lines: summary.totalLines,
+      key_directories: summary.keyDirectories,
+      recent_decisions: summary.recentDecisions.map(d => ({
+        id: d.id,
+        title: d.title,
+        created_at: d.createdAt.toISOString(),
+      })),
+    },
+    learning: {
+      total_queries: learningStats.usageStats.totalQueries,
+      total_file_views: learningStats.usageStats.totalFileViews,
+      top_files: learningStats.usageStats.topFiles.slice(0, 5),
+      cache_size: learningStats.hotCacheStats.size,
+    },
+  };
+}
+
+/**
+ * What happened - activity summary
+ */
+async function handleWhatHappened(
+  engine: MemoryLayerEngine,
+  input: MemoryStatusInput,
+  sourcesUsed: string[]
+): Promise<MemoryStatusResponse> {
+  sourcesUsed.push('what_happened');
+
+  const since = input.since || 'this week';
+  const result = await engine.whatHappened(since, input.file);
+
+  return {
+    sources_used: sourcesUsed,
+    activity: {
+      time_range: {
+        since: result.timeRange.since.toISOString(),
+        until: result.timeRange.until.toISOString(),
+      },
+      summary: result.summary,
+      changes_count: result.changes.length,
+      decisions_count: result.decisions.length,
+      files_affected: result.filesAffected.slice(0, 20),
+    },
+  };
+}
+
+/**
+ * What changed - file changes
+ */
+async function handleWhatChanged(
+  engine: MemoryLayerEngine,
+  input: MemoryStatusInput,
+  sourcesUsed: string[]
+): Promise<MemoryStatusResponse> {
+  sourcesUsed.push('what_changed');
+
+  const since = input.since || 'this week';
+  const result = engine.whatChanged({
+    since,
+    file: input.file,
+    author: input.author,
+  });
+
+  return {
+    sources_used: sourcesUsed,
+    changes: {
+      period: result.period,
+      total_files: result.totalFiles,
+      total_lines_added: result.totalLinesAdded,
+      total_lines_removed: result.totalLinesRemoved,
+      by_author: result.byAuthor,
+      recent: result.changes.slice(0, 20).map(c => ({
+        file: c.file,
+        type: c.type,
+        lines_added: c.linesAdded,
+        lines_removed: c.linesRemoved,
+        author: c.author,
+        timestamp: c.timestamp.toISOString(),
+      })),
+    },
+  };
+}
+
+/**
+ * Architecture overview
+ */
+async function handleArchitecture(
+  engine: MemoryLayerEngine,
+  input: MemoryStatusInput,
+  sourcesUsed: string[]
+): Promise<MemoryStatusResponse> {
+  sourcesUsed.push('get_architecture');
+
+  const arch = await engine.getArchitecture();
+
+  // Also get stats
+  sourcesUsed.push('get_architecture_stats');
+  const stats = engine.getArchitectureStats();
+
+  return {
+    sources_used: sourcesUsed,
+    architecture: {
+      name: arch.name,
+      description: arch.description,
+      diagram: arch.diagram,
+      layers: arch.layers.map(l => ({
+        name: l.name,
+        directory: l.directory,
+        files_count: l.files.length,
+        purpose: l.purpose,
+      })),
+      data_flow: arch.dataFlow,
+      key_components: arch.keyComponents.map(c => ({
+        name: c.name,
+        file: c.file,
+        purpose: c.purpose,
+      })),
+    },
+    stats: {
+      patterns_total: stats.patterns.total,
+      functions_total: stats.functions.total,
+      functions_exported: stats.functions.exported,
+    },
+  };
+}
+
+/**
+ * Changelog
+ */
+async function handleChangelog(
+  engine: MemoryLayerEngine,
+  input: MemoryStatusInput,
+  sourcesUsed: string[]
+): Promise<MemoryStatusResponse> {
+  sourcesUsed.push('get_changelog');
+
+  const changelogs = await engine.getChangelog({
+    since: input.since,
+    groupBy: input.group_by,
+    includeDecisions: input.include_decisions,
+  });
+
+  return {
+    sources_used: sourcesUsed,
+    changelog: changelogs.map(day => ({
+      date: day.date.toISOString().split('T')[0] || day.date.toISOString(),
+      summary: day.summary,
+      features: day.features.length,
+      fixes: day.fixes.length,
+      refactors: day.refactors.length,
+    })),
+  };
+}
+
+/**
+ * Context health
+ */
+async function handleContextHealth(
+  engine: MemoryLayerEngine,
+  input: MemoryStatusInput,
+  sourcesUsed: string[]
+): Promise<MemoryStatusResponse> {
+  sourcesUsed.push('get_context_health');
+
+  const health = engine.getContextHealth();
+  const drift = engine.detectDrift();
+
+  // Also get critical context
+  sourcesUsed.push('get_critical_context');
+  const criticalItems = engine.getCriticalContext();
+
+  return {
+    sources_used: sourcesUsed,
+    health: {
+      health: health.health,
+      tokens_used: health.tokensUsed,
+      tokens_limit: health.tokensLimit,
+      utilization: `${health.utilizationPercent}%`,
+      drift_detected: health.driftDetected,
+      compaction_needed: health.compactionNeeded,
+      suggestions: health.suggestions,
+    },
+    critical: {
+      total: criticalItems.length,
+      by_type: {
+        decision: criticalItems.filter(i => i.type === 'decision').length,
+        requirement: criticalItems.filter(i => i.type === 'requirement').length,
+        instruction: criticalItems.filter(i => i.type === 'instruction').length,
+        custom: criticalItems.filter(i => i.type === 'custom').length,
+      },
+      items: criticalItems.slice(0, 10).map(item => ({
+        id: item.id,
+        type: item.type,
+        content: item.content.slice(0, 100),
+        reason: item.reason,
+      })),
+    },
+  };
+}
+
+/**
+ * Pattern list
+ */
+async function handlePatterns(
+  engine: MemoryLayerEngine,
+  input: MemoryStatusInput,
+  sourcesUsed: string[]
+): Promise<MemoryStatusResponse> {
+  sourcesUsed.push('list_patterns');
+
+  const patterns = engine.listPatterns(input.category);
+
+  // Group by category
+  const byCategory: Record<string, number> = {};
+  for (const pattern of patterns) {
+    byCategory[pattern.category] = (byCategory[pattern.category] || 0) + 1;
+  }
+
+  return {
+    sources_used: sourcesUsed,
+    patterns: {
+      total: patterns.length,
+      by_category: byCategory,
+      patterns: patterns.slice(0, 20).map(p => ({
+        id: p.id,
+        name: p.name,
+        category: p.category,
+        usage_count: p.usageCount,
+      })),
+    },
+  };
+}
+
+/**
+ * Architecture stats
+ */
+async function handleArchitectureStats(
+  engine: MemoryLayerEngine,
+  input: MemoryStatusInput,
+  sourcesUsed: string[]
+): Promise<MemoryStatusResponse> {
+  sourcesUsed.push('get_architecture_stats');
+
+  const stats = engine.getArchitectureStats();
+
+  return {
+    sources_used: sourcesUsed,
+    stats: {
+      patterns_total: stats.patterns.total,
+      functions_total: stats.functions.total,
+      functions_exported: stats.functions.exported,
+    },
+  };
+}
+
+/**
+ * Find undocumented code
+ */
+async function handleUndocumented(
+  engine: MemoryLayerEngine,
+  input: MemoryStatusInput,
+  sourcesUsed: string[]
+): Promise<MemoryStatusResponse> {
+  sourcesUsed.push('find_undocumented');
+
+  const items = await engine.findUndocumented({});
+
+  // Group by importance
+  const byImportance: Record<string, number> = {
+    high: 0,
+    medium: 0,
+    low: 0,
+  };
+  for (const item of items) {
+    byImportance[item.importance] = (byImportance[item.importance] || 0) + 1;
+  }
+
+  // Also validate docs
+  sourcesUsed.push('validate_docs');
+  const docsResult = await engine.validateDocs();
+
+  return {
+    sources_used: sourcesUsed,
+    undocumented: {
+      total: items.length,
+      by_importance: byImportance,
+      items: items.slice(0, 30).map(i => ({
+        file: i.file,
+        symbol: i.symbol,
+        type: i.type,
+        importance: i.importance,
+      })),
+    },
+    docs: {
+      is_valid: docsResult.isValid,
+      score: docsResult.score,
+      outdated_count: docsResult.outdatedDocs.length,
+      undocumented_count: docsResult.undocumentedCode.length,
+      suggestions: docsResult.suggestions.slice(0, 5).map(s => ({
+        file: s.file,
+        suggestion: s.suggestion,
+        priority: s.priority,
+      })),
+    },
+  };
+}
+
+/**
+ * Critical context items
+ */
+async function handleCriticalContext(
+  engine: MemoryLayerEngine,
+  input: MemoryStatusInput,
+  sourcesUsed: string[]
+): Promise<MemoryStatusResponse> {
+  sourcesUsed.push('get_critical_context');
+
+  const items = engine.getCriticalContext();
+
+  // Group by type
+  const byType: Record<string, number> = {
+    decision: 0,
+    requirement: 0,
+    instruction: 0,
+    custom: 0,
+  };
+  for (const item of items) {
+    byType[item.type] = (byType[item.type] || 0) + 1;
+  }
+
+  return {
+    sources_used: sourcesUsed,
+    critical: {
+      total: items.length,
+      by_type: byType,
+      items: items.map(item => ({
+        id: item.id,
+        type: item.type,
+        content: item.content,
+        reason: item.reason,
+      })),
+    },
+  };
+}
+
+/**
+ * Learning stats
+ */
+async function handleLearningStats(
+  engine: MemoryLayerEngine,
+  input: MemoryStatusInput,
+  sourcesUsed: string[]
+): Promise<MemoryStatusResponse> {
+  sourcesUsed.push('get_learning_stats');
+
+  const stats = engine.getLearningStats();
+
+  return {
+    sources_used: sourcesUsed,
+    learning: {
+      total_queries: stats.usageStats.totalQueries,
+      total_file_views: stats.usageStats.totalFileViews,
+      top_files: stats.usageStats.topFiles,
+      cache_size: stats.hotCacheStats.size,
+    },
+  };
+}
