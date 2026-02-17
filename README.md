@@ -1,6 +1,6 @@
 # MemoryLayer
 
-> **Persistent memory layer for AI coding assistants** - An MCP server that makes AI truly understand your codebase
+> **Give your AI coding assistant a brain that actually remembers**
 
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/typescript-5.4+-blue)](https://www.typescriptlang.org/)
@@ -8,29 +8,124 @@
 
 ---
 
-## The Problem
+## What is MemoryLayer?
 
-AI coding assistants have a memory problem:
+**MemoryLayer is the missing brain for AI coding assistants.**
 
-| Issue | Impact |
-|-------|--------|
-| **Context forgetting** | AI forgets what you discussed 5 minutes ago |
-| **Hallucinations** | AI invents libraries that don't exist |
-| **Security vulnerabilities** | AI code has 1.7x more security issues |
-| **Code duplication** | AI creates functions that already exist |
-| **Decision conflicts** | AI ignores architectural decisions you made |
-| **Productivity paradox** | Developers are 19% slower with AI despite feeling faster |
+When you use Claude, GPT, or any AI coding tool, you've probably noticed:
 
-## The Solution
+- You explain your architecture, then 10 minutes later it suggests something that contradicts it
+- It invents libraries that don't exist ("just use `super-auth-helper`!")
+- It forgets what you were working on yesterday
+- It creates a new utility function when you already have one that does exactly that
 
-MemoryLayer gives AI assistants **persistent, intelligent memory** through the Model Context Protocol (MCP):
+**MemoryLayer fixes all of this.**
 
-- **Remembers decisions** - "We chose JWT for auth because..."
-- **Knows your codebase** - Semantic search across all files
-- **Catches hallucinations** - Verifies imports actually exist
-- **Prevents security issues** - OWASP Top 10 scanning
-- **Surfaces similar problems** - "You solved this 2 weeks ago in auth.ts"
-- **Tracks what you're working on** - Context resurrection across sessions
+It's an MCP server that gives AI assistants:
+- **Persistent memory** that survives across sessions
+- **Reality checking** that catches hallucinations before they become bugs
+- **Proactive intelligence** that surfaces relevant context before you even ask
+
+---
+
+## The Core Idea
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    WITHOUT MemoryLayer                       │
+├─────────────────────────────────────────────────────────────┤
+│  You: "We decided to use PostgreSQL"                        │
+│  AI:  "Got it!"                                             │
+│  ...10 minutes later...                                     │
+│  AI:  "Let's set up MongoDB for this"                       │
+│  You: "😤"                                                  │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│                     WITH MemoryLayer                         │
+├─────────────────────────────────────────────────────────────┤
+│  You: "We decided to use PostgreSQL"                        │
+│  AI:  [Records decision]                                    │
+│  ...10 minutes later...                                     │
+│  AI:  "I'll add this to your PostgreSQL schema..."          │
+│       (Remembers your decision)                             │
+│                                                             │
+│  ...or if it tries MongoDB...                               │
+│  MemoryLayer: "⚠️ Warning: Conflicts with decision          │
+│                'Use PostgreSQL for database'"               │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Three Superpowers
+
+### 1. Memory That Persists
+
+MemoryLayer remembers **everything** across sessions:
+
+| What It Remembers | Example |
+|-------------------|---------|
+| **Decisions** | "We use JWT for auth because we need stateless scaling" |
+| **Patterns** | "Error handlers in this codebase always use this format..." |
+| **Context** | "Yesterday you were debugging the login flow, stuck on token refresh" |
+| **Your codebase** | Semantic search finds code by meaning, not just keywords |
+
+```
+"What was I working on last week?"
+
+→ "You were implementing user authentication. You made 3 decisions:
+   1. Use JWT tokens (for stateless auth)
+   2. Store refresh tokens in httpOnly cookies
+   3. 15-minute access token expiry
+
+   You left off debugging token refresh in src/auth/refresh.ts"
+```
+
+### 2. Reality Checking
+
+AI hallucinates. MemoryLayer catches it **before it becomes your problem**:
+
+```typescript
+// AI suggests this code:
+import { validateEmail } from 'super-validator-pro';  // ← doesn't exist
+
+// MemoryLayer catches it:
+{
+  verdict: "fail",
+  issues: [{
+    type: "hallucinated_import",
+    message: "Package 'super-validator-pro' does not exist",
+    suggestion: "Use 'validator' package or the existing validateEmail in src/utils/validation.ts"
+  }]
+}
+```
+
+**What it catches:**
+- Hallucinated packages that don't exist
+- Security vulnerabilities (SQL injection, XSS, hardcoded secrets)
+- Functions that already exist in your codebase
+- Code that conflicts with your architectural decisions
+
+### 3. Proactive Intelligence (Ghost Mode)
+
+Most tools wait for you to ask. MemoryLayer **anticipates what you need**:
+
+```
+You open auth/login.ts
+
+Ghost Mode silently:
+├── Fetches related decisions ("Use JWT", "No session cookies")
+├── Finds similar past problems you solved
+├── Identifies patterns this file should follow
+└── Pre-loads context you'll probably need
+
+When you write code that uses sessions:
+→ "⚠️ This conflicts with your decision to use JWT for auth"
+
+When you ask about error handling:
+→ "💡 You solved a similar problem 2 weeks ago in auth/refresh.ts"
+```
 
 ---
 
@@ -39,20 +134,15 @@ MemoryLayer gives AI assistants **persistent, intelligent memory** through the M
 ### 1. Install
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/memorylayer.git
+git clone https://github.com/abhisavakar/memorylayer.git
 cd memorylayer
-
-# Install dependencies
 npm install
-
-# Build
 npm run build
 ```
 
-### 2. Configure with Claude Desktop
+### 2. Add to Claude Desktop
 
-Add to your `claude_desktop_config.json`:
+Edit `claude_desktop_config.json`:
 
 ```json
 {
@@ -65,411 +155,239 @@ Add to your `claude_desktop_config.json`:
 }
 ```
 
-### 3. Start Using
+### 3. Use It
 
-Once configured, Claude will automatically have access to MemoryLayer's tools. Try:
-
-- "What's the architecture of this project?"
-- "Record a decision: We're using PostgreSQL for the database"
-- "Review this code for issues"
-- "What was I working on last session?"
-
----
-
-## Features
-
-### Semantic Code Search
-
-Find code by meaning, not just keywords:
+MemoryLayer works automatically. But you can also talk to it directly:
 
 ```
-Query: "how does authentication work?"
-→ Returns: auth middleware, JWT validation, login flow, session management
-```
-
-### Decision Tracking
-
-Record and enforce architectural decisions:
-
-```
-"Record decision: Use GraphQL instead of REST for all new APIs"
-→ Later, when writing REST code: "Warning: conflicts with decision to use GraphQL"
-```
-
-### Pre-Commit Quality Gate
-
-Catch issues before they land:
-
-```typescript
-// Checks:
-// - Do imports exist? (catches hallucinations)
-// - Security vulnerabilities? (OWASP Top 10)
-// - Packages installed?
-// - Follows project patterns?
-// - Will tests break?
-```
-
-### Ghost Mode (Proactive Intelligence)
-
-MemoryLayer silently tracks your work and surfaces relevant information:
-
-- **Conflict Radar**: Warns when code conflicts with past decisions
-- **Déjà Vu Detection**: "You solved a similar problem 2 weeks ago"
-- **Context Resurrection**: "Welcome back! Last time you were working on auth..."
-
-### Living Documentation
-
-Documentation that stays in sync with your code:
-
-- Auto-generated architecture diagrams
-- Change-aware component docs
-- Freshness validation
-
----
-
-## Tools Reference
-
-MemoryLayer exposes **6 gateway tools** that intelligently route to 50+ internal functions:
-
-### `memory_query` - Search & Understand
-
-```typescript
-// Semantic code search
-{ query: "how does authentication work?" }
-
-// Get file with context
-{ query: "src/auth/login.ts", action: "file" }
-
-// Find symbol definitions
-{ query: "UserService", action: "symbol" }
-
-// Check if function exists
-{ query: "validate email format", action: "existing" }
-```
-
-### `memory_record` - Remember Things
-
-```typescript
-// Record a decision
-{ title: "Use JWT for auth", content: "Because we need stateless authentication" }
-
-// Learn a pattern
-{ code: "export const handler = ...", pattern_name: "API Handler Pattern" }
-
-// Mark something critical (survives context compaction)
-{ content: "Never delete user data without backup", critical_type: "requirement" }
-```
-
-### `memory_review` - Check Code Quality
-
-```typescript
-// Full review
-{ code: "const query = `SELECT * FROM users WHERE id = ${id}`" }
-
-// Response includes:
-// - Pattern compliance
-// - Security issues (SQL injection detected!)
-// - Test impact
-// - Decision conflicts
-// - Existing alternatives
-```
-
-### `memory_verify` - Pre-Commit Gate
-
-```typescript
-// Verify AI-generated code before committing
-{
-  code: "import { foo } from 'nonexistent-package'",
-  file: "src/utils.ts",
-  checks: ["imports", "security", "dependencies"]
-}
-
-// Response:
-// verdict: "fail"
-// issues: [{ type: "missing_package", message: "Package not installed" }]
-```
-
-### `memory_status` - Project Overview
-
-```typescript
-// Project summary with welcome back message
-{ action: "summary" }
-
-// What changed recently
-{ action: "changed", since: "yesterday" }
-
-// Architecture overview
-{ action: "architecture" }
-
-// Context health (memory usage, drift detection)
-{ action: "health" }
-```
-
-### `memory_ghost` - Proactive Intelligence
-
-```typescript
-// Full ghost insight
-{ mode: "full" }
-
-// Check for decision conflicts
-{ mode: "conflicts", code: "..." }
-
-// Find similar past problems
-{ mode: "dejavu", query: "handle auth errors" }
-
-// Resurrect last session context
-{ mode: "resurrect" }
+"Record a decision: We're using GraphQL instead of REST"
+"What do you know about our authentication system?"
+"Check this code for issues before I commit"
+"What was I working on yesterday?"
 ```
 
 ---
 
-## Architecture
+## How It Works
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     MCP Interface                            │
-│  memory_query  memory_record  memory_review  memory_verify   │
-│  memory_status  memory_ghost                                 │
+│                     Your AI Assistant                        │
+│                    (Claude, GPT, etc.)                       │
 └─────────────────────────────────────────────────────────────┘
                               │
+                              │ MCP Protocol
+                              ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    Gateway Layer                             │
-│         Routes to 50+ internal tools automatically           │
-└─────────────────────────────────────────────────────────────┘
-                              │
-┌─────────────────────────────────────────────────────────────┐
-│                    Core Engine                               │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
-│  │ Indexer  │  │ Context  │  │ Decision │  │ Learning │    │
-│  │          │  │Assembler │  │ Tracker  │  │ Engine   │    │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘    │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
-│  │  Ghost   │  │ Déjà Vu  │  │   Code   │  │   Test   │    │
-│  │  Mode    │  │ Detector │  │ Verifier │  │Awareness │    │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘    │
-└─────────────────────────────────────────────────────────────┘
-                              │
-┌─────────────────────────────────────────────────────────────┐
-│                   Storage Tiers                              │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐                  │
-│  │  Tier 1  │  │  Tier 2  │  │  Tier 3  │                  │
-│  │ Hot/Fast │  │ Indexed  │  │ Archive  │                  │
-│  │  Cache   │  │ SQLite   │  │  Store   │                  │
-│  └──────────┘  └──────────┘  └──────────┘                  │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Key Components
-
-| Component | Purpose |
-|-----------|---------|
-| **Indexer** | Scans codebase, extracts symbols, generates embeddings |
-| **Context Assembler** | Assembles relevant context for queries |
-| **Decision Tracker** | Records and searches architectural decisions |
-| **Learning Engine** | Tracks usage patterns, predicts needed files |
-| **Ghost Mode** | Silent tracking, conflict detection |
-| **Déjà Vu Detector** | Finds similar past problems |
-| **Code Verifier** | Import/security/dependency verification |
-| **Test Awareness** | Tracks tests, predicts failures |
-
-### Storage Tiers
-
-| Tier | Contents | Access Speed |
-|------|----------|--------------|
-| **Tier 1** | Active context, recent decisions | Instant (memory) |
-| **Tier 2** | Indexed files, embeddings, patterns | Fast (SQLite) |
-| **Tier 3** | Historical context, archived sessions | Standard (disk) |
-
----
-
-## Configuration
-
-### Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `MEMORYLAYER_DATA_DIR` | `.memorylayer` | Data storage directory |
-| `MEMORYLAYER_MAX_TOKENS` | `100000` | Maximum context tokens |
-| `MEMORYLAYER_EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Embedding model |
-
-### Ignore Patterns
-
-Create `.memorylayerignore` in your project root:
-
-```
-# Ignore test fixtures
-test/fixtures/**
-
-# Ignore generated files
-dist/**
-*.generated.ts
-
-# Ignore large data files
-*.csv
-*.json
-data/**
-```
-
----
-
-## Performance
-
-MemoryLayer is optimized for speed:
-
-| Metric | Value |
-|--------|-------|
-| Semantic search | <50ms for 10k files |
-| Context assembly | <100ms |
-| Embedding generation | ~10ms per chunk |
-| Memory overhead | ~50MB base + embeddings |
-
-### Benchmarks
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│ MemoryLayer vs Traditional Grep                             │
+│                       MemoryLayer                            │
 ├─────────────────────────────────────────────────────────────┤
-│ Semantic Search:  759x faster                               │
-│ Token Usage:      51.7% reduction                           │
-│ Relevance:        3.46x better (Cohen's d)                  │
-│ Statistical:      p < 0.001                                 │
+│                                                             │
+│  🧠 Memory Engine                                           │
+│  ├── Decisions: "Use JWT", "PostgreSQL", "No Redux"         │
+│  ├── Patterns: How you structure code in this project       │
+│  ├── Context: What you're working on, what you asked        │
+│  └── Codebase: Semantic index of all your files             │
+│                                                             │
+│  👻 Ghost Mode (Proactive)                                  │
+│  ├── Conflict detection: Warns before you break decisions   │
+│  ├── Déjà vu: "You solved this before"                      │
+│  └── Resurrection: "Welcome back, you were working on..."   │
+│                                                             │
+│  ✅ Reality Checker                                          │
+│  ├── Import verification: Do packages exist?                │
+│  ├── Security scan: OWASP Top 10 patterns                   │
+│  └── Duplicate detection: Does this function already exist? │
+│                                                             │
 └─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    SQLite + Embeddings                       │
+│               (Persists across sessions)                     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## The 6 Tools
+
+MemoryLayer exposes 6 smart tools that route to 50+ internal capabilities:
+
+| Tool | Purpose | Example |
+|------|---------|---------|
+| `memory_query` | Search & understand | "How does auth work in this codebase?" |
+| `memory_record` | Remember things | "Record decision: Use PostgreSQL" |
+| `memory_review` | Check code quality | "Review this code for issues" |
+| `memory_verify` | Pre-commit gate | "Verify this before I commit" |
+| `memory_status` | Project overview | "What's the state of this project?" |
+| `memory_ghost` | Proactive insights | "What conflicts might this cause?" |
+
+---
+
+## What Makes This Different
+
+| Feature | ChatGPT/Claude Alone | With MemoryLayer |
+|---------|---------------------|------------------|
+| **Memory** | Forgets after session | Remembers forever |
+| **Decisions** | You repeat yourself | Records & enforces |
+| **Hallucinations** | You catch them | Caught automatically |
+| **Security** | You review manually | OWASP Top 10 scan |
+| **Duplicates** | AI reinvents | "This already exists in utils.ts" |
+| **Context** | Starts fresh | "Welcome back! You were working on..." |
+
+---
+
+## Real Examples
+
+### Recording a Decision
+
+```
+You: "We've decided to use Tailwind CSS instead of styled-components"
+
+MemoryLayer: ✓ Recorded decision: "Use Tailwind CSS instead of styled-components"
+
+...later, when AI suggests styled-components...
+
+MemoryLayer: ⚠️ Warning: This code uses styled-components, but you decided
+             to use Tailwind CSS instead. Should I refactor this to use Tailwind?
+```
+
+### Catching Hallucinations
+
+```
+AI generates:
+  import { useAuthState } from 'react-firebase-hooks/auth';
+
+MemoryLayer: ❌ Package 'react-firebase-hooks' is not installed.
+
+             Suggestion: You have a similar hook in src/hooks/useAuth.ts
+             that provides useAuthState functionality.
+```
+
+### Context Resurrection
+
+```
+You: *open project after a week*
+
+MemoryLayer: Welcome back! Here's what you were working on:
+
+📁 Last active files:
+   - src/api/payments.ts
+   - src/hooks/useStripe.ts
+
+❓ You seemed stuck on:
+   "How to handle failed payment webhooks"
+
+💡 Suggested next steps:
+   1. Continue implementing webhook retry logic
+   2. Check the Stripe webhook signature verification
+```
+
+### Proactive Conflict Detection
+
+```
+You're writing code that stores user sessions in Redis...
+
+MemoryLayer: ⚠️ Potential conflict detected
+
+Your code uses Redis for session storage, but 2 weeks ago
+you decided: "Use JWT for stateless auth - no server-side sessions"
+
+Options:
+1. This is a different use case (continue)
+2. Update the decision (we now use sessions)
+3. Refactor to use JWT
 ```
 
 ---
 
 ## Security Scanning
 
-The `memory_verify` tool scans for OWASP Top 10 vulnerabilities:
+MemoryLayer scans for OWASP Top 10 vulnerabilities:
 
-| Vulnerability | CWE | Severity |
-|--------------|-----|----------|
-| SQL Injection | CWE-89 | Critical |
-| XSS | CWE-79 | High |
-| Command Injection | CWE-78 | Critical |
-| Path Traversal | CWE-22 | High |
-| Hardcoded Secrets | CWE-798 | Critical |
-| Insecure Random | CWE-330 | Medium |
-| Weak Crypto | CWE-327 | High |
-| Prototype Pollution | CWE-1321 | High |
-| Unsafe Eval | CWE-95 | High |
-| SSRF | CWE-918 | High |
-| Open Redirect | CWE-601 | Medium |
+| Finds | Severity | Example |
+|-------|----------|---------|
+| SQL Injection | Critical | `` `SELECT * FROM users WHERE id = ${id}` `` |
+| XSS | High | `innerHTML = userInput` |
+| Command Injection | Critical | `` exec(`rm ${userPath}`) `` |
+| Hardcoded Secrets | Critical | `const API_KEY = "sk-1234..."` |
+| Path Traversal | High | `readFile(userPath)` |
+| Weak Crypto | Medium | `createHash('md5')` |
+
+---
+
+## Performance
+
+| Metric | Value |
+|--------|-------|
+| Semantic search | <50ms |
+| Context assembly | <100ms |
+| Memory overhead | ~50MB |
+| Token reduction | 51.7% fewer tokens |
+
+**Benchmark:** 759x faster than grep for finding relevant code, with 3.46x better relevance (Cohen's d, p < 0.001).
+
+---
+
+## Project Structure
+
+```
+memorylayer/
+├── src/
+│   ├── core/              # Brain: memory, decisions, ghost mode
+│   │   ├── engine.ts      # Main orchestrator
+│   │   ├── ghost-mode.ts  # Proactive intelligence
+│   │   ├── deja-vu.ts     # "You solved this before"
+│   │   └── code-verifier.ts # Reality checking
+│   ├── indexing/          # Codebase understanding
+│   ├── storage/           # Persistent memory (SQLite)
+│   └── server/            # MCP interface
+├── tests/
+└── dist/
+```
 
 ---
 
 ## Development
 
-### Project Structure
-
-```
-memorylayer/
-├── src/
-│   ├── core/           # Core engine components
-│   │   ├── engine.ts   # Main orchestrator
-│   │   ├── context.ts  # Context assembly
-│   │   ├── ghost-mode.ts
-│   │   ├── deja-vu.ts
-│   │   ├── code-verifier.ts
-│   │   └── ...
-│   ├── indexing/       # File indexing & embeddings
-│   ├── storage/        # Tiered storage (Tier1/2/3)
-│   ├── server/         # MCP server & gateways
-│   │   └── gateways/   # Tool handlers
-│   └── types/          # TypeScript definitions
-├── tests/              # Test suites
-├── dist/               # Build output
-└── package.json
-```
-
-### Scripts
-
 ```bash
-# Development
-npm run build          # Build the project
-npm run dev            # Watch mode
-npm run typecheck      # TypeScript check
-
-# Testing
-npm run test           # Run tests (watch)
-npm run test:run       # Run tests once
-
-# Benchmarks
-npm run benchmark      # Run performance benchmarks
-npm run benchmark:quick
+npm run build       # Build
+npm run dev         # Watch mode
+npm run test        # Run tests
+npm run typecheck   # TypeScript check
 ```
-
-### Adding a New Tool
-
-1. Create handler in `src/server/gateways/`
-2. Add types to `src/server/gateways/types.ts`
-3. Register in `src/server/gateways/index.ts`
-4. Add engine methods in `src/core/engine.ts`
 
 ---
 
-## Roadmap
+## FAQ
 
-### Completed
+**Q: Does this send my code to the cloud?**
+A: No. MemoryLayer runs 100% locally. Embeddings are generated locally using transformers.js.
 
-- [x] Semantic code search
-- [x] Decision tracking
-- [x] Living documentation
-- [x] Context rot prevention
-- [x] Confidence scoring
-- [x] Change intelligence
-- [x] Architecture enforcement
-- [x] Test awareness
-- [x] Ghost mode (proactive intelligence)
-- [x] Déjà vu detection
-- [x] Context resurrection
-- [x] Pre-commit quality gate
-- [x] Security scanning
+**Q: What AI assistants does this work with?**
+A: Any assistant that supports MCP (Model Context Protocol). Currently Claude Desktop, with more coming.
 
-### Planned
+**Q: How much disk space does it use?**
+A: Typically 50-200MB depending on codebase size (mostly embeddings).
 
-- [ ] Multi-language support (Python, Go, Rust)
-- [ ] Team collaboration features
-- [ ] IDE plugins (VS Code, JetBrains)
-- [ ] Cloud sync option
-- [ ] Custom embedding models
+**Q: Can I use this with multiple projects?**
+A: Yes! Each project gets its own memory store.
 
 ---
 
 ## Contributing
 
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### Code Style
-
-- TypeScript with strict mode
-- ESLint + Prettier
-- Comprehensive JSDoc comments
-- Unit tests for new features
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ---
 
 ## License
 
-This project is proprietary. See [LICENSE](LICENSE) for details.
-
----
-
-## Acknowledgments
-
-- [Model Context Protocol](https://modelcontextprotocol.io/) - The protocol that makes this possible
-- [Xenova/transformers](https://github.com/xenova/transformers.js) - Local embedding generation
-- [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) - Fast SQLite bindings
-- [Chokidar](https://github.com/paulmillr/chokidar) - File watching
+Proprietary. See [LICENSE](LICENSE) for details.
 
 ---
 
 <p align="center">
-  <b>MemoryLayer</b> - Making AI coding assistants actually remember
+  <b>MemoryLayer</b><br>
+  Because AI assistants shouldn't have amnesia
 </p>
