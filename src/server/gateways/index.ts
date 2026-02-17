@@ -1,12 +1,13 @@
 /**
  * Gateway Pattern Implementation
  *
- * Reduces 51 MCP tools to 5 gateway tools + 6 standalone (11 total),
+ * Reduces 51 MCP tools to 6 gateway tools + 6 standalone (12 total),
  * saving ~5,000 tokens per API call on tool description overhead.
  *
  * Benchmark Context: 759x speedup, 51.7% token reduction, p < 0.001, Cohen's d = 3.46
  *
  * Phase 12: Added memory_ghost for "Super Intelligent Brain" features
+ * Phase 13: Added memory_verify for pre-commit quality gate
  */
 
 import type { MemoryLayerEngine } from '../../core/engine.js';
@@ -16,12 +17,14 @@ import type {
   MemoryRecordInput,
   MemoryReviewInput,
   MemoryStatusInput,
+  MemoryVerifyInput,
 } from './types.js';
 import { handleMemoryQuery } from './memory-query.js';
 import { handleMemoryRecord } from './memory-record.js';
 import { handleMemoryReview } from './memory-review.js';
 import { handleMemoryStatus } from './memory-status.js';
 import { handleMemoryGhost, type MemoryGhostInput, type MemoryGhostResponse } from './memory-ghost.js';
+import { handleMemoryVerify, type MemoryVerifyResponse } from './memory-verify.js';
 
 // ============================================================================
 // Gateway Tool Names
@@ -33,6 +36,7 @@ export const GATEWAY_TOOLS = [
   'memory_review',
   'memory_status',
   'memory_ghost',
+  'memory_verify',
 ] as const;
 
 export type GatewayToolName = typeof GATEWAY_TOOLS[number];
@@ -262,6 +266,36 @@ export const gatewayDefinitions: ToolDefinition[] = [
         }
       }
     }
+  },
+  {
+    name: 'memory_verify',
+    description: 'Pre-commit quality gate for AI-generated code. Catches hallucinations, security issues, and integration problems BEFORE they land. Run before committing AI suggestions. Checks: imports (do they exist?), security (OWASP Top 10), dependencies (installed?), patterns (project conventions), tests (will they break?). Returns verdict (pass/warning/fail), score (0-100), and actionable suggestions.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        code: {
+          type: 'string',
+          description: 'Code to verify'
+        },
+        file: {
+          type: 'string',
+          description: 'Target file path (enables import resolution and test checks)'
+        },
+        checks: {
+          type: 'array',
+          items: {
+            type: 'string',
+            enum: ['imports', 'security', 'dependencies', 'patterns', 'tests', 'all']
+          },
+          description: 'Specific checks to run (default: all)'
+        },
+        intent: {
+          type: 'string',
+          description: 'What this code is for (improves suggestions)'
+        }
+      },
+      required: ['code']
+    }
   }
 ];
 
@@ -412,6 +446,9 @@ export async function handleGatewayCall(
     case 'memory_ghost':
       return handleMemoryGhost(engine, args as unknown as MemoryGhostInput);
 
+    case 'memory_verify':
+      return handleMemoryVerify(engine, args as unknown as MemoryVerifyInput);
+
     default:
       throw new Error(`Unknown gateway: ${gatewayName}`);
   }
@@ -428,6 +465,9 @@ export type {
   MemoryReviewResponse,
   MemoryStatusInput,
   MemoryStatusResponse,
+  MemoryVerifyInput,
+  MemoryVerifyResponse,
 } from './types.js';
 
 export type { MemoryGhostInput, MemoryGhostResponse } from './memory-ghost.js';
+export type { MemoryVerifyResponse as VerifyResponse } from './memory-verify.js';

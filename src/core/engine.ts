@@ -21,13 +21,14 @@ import { ArchitectureEnforcement } from './architecture/index.js';
 import { TestAwareness } from './test-awareness/index.js';
 import { GhostMode, type GhostInsight, type ConflictWarning } from './ghost-mode.js';
 import { DejaVuDetector, type DejaVuMatch } from './deja-vu.js';
+import { CodeVerifier, type VerificationResult, type VerificationCheck, type ImportVerification, type SecurityScanResult, type DependencyCheckResult } from './code-verifier.js';
 import { detectLanguage, getPreview, countLines } from '../utils/files.js';
 import type { MemoryLayerConfig, AssembledContext, Decision, ProjectSummary, SearchResult, CodeSymbol, SymbolKind, ActiveFeatureContext, HotContext } from '../types/index.js';
 import type { ArchitectureDoc, ComponentDoc, DailyChangelog, ChangelogOptions, ValidationResult, ActivityResult, UndocumentedItem, ContextHealth, CompactionResult, CompactionOptions, CriticalContext, DriftResult, ConfidenceResult, ConfidenceLevel, ConfidenceSources, ConflictResult, ChangeQueryResult, ChangeQueryOptions, Diagnosis, PastBug, FixSuggestion, Change, Pattern, PatternCategory, PatternValidationResult, ExistingFunction, TestInfo, TestFramework, TestValidationResult, TestUpdate, TestCoverage } from '../types/documentation.js';
 import type Database from 'better-sqlite3';
 
 // Re-export types for external use
-export type { GhostInsight, ConflictWarning, DejaVuMatch, ResurrectedContext };
+export type { GhostInsight, ConflictWarning, DejaVuMatch, ResurrectedContext, VerificationResult, VerificationCheck, ImportVerification, SecurityScanResult, DependencyCheckResult };
 
 export class MemoryLayerEngine {
   private config: MemoryLayerConfig;
@@ -51,6 +52,7 @@ export class MemoryLayerEngine {
   private testAwareness: TestAwareness;
   private ghostMode: GhostMode;
   private dejaVu: DejaVuDetector;
+  private codeVerifier: CodeVerifier;
   private backgroundInterval: NodeJS.Timeout | null = null;
   private initialized = false;
 
@@ -157,6 +159,9 @@ export class MemoryLayerEngine {
       this.tier2,
       this.indexer.getEmbeddingGenerator()
     );
+
+    // Phase 13: Initialize Code Verifier (pre-commit quality gate)
+    this.codeVerifier = new CodeVerifier(config.projectPath, this.tier2);
 
     // Register this project
     const projectInfo = this.projectManager.registerProject(config.projectPath);
@@ -1361,6 +1366,41 @@ export class MemoryLayerEngine {
    */
   getDejaVuStats(): { totalQueries: number; usefulQueries: number; avgUsefulness: number } {
     return this.dejaVu.getStats();
+  }
+
+  // ========== Phase 13: Code Verification (Pre-Commit Quality Gate) ==========
+
+  /**
+   * Verify code for common AI-generated issues
+   * Catches: hallucinated imports, security vulnerabilities, dependency issues
+   */
+  async verifyCode(
+    code: string,
+    file?: string,
+    checks: VerificationCheck[] = ['all']
+  ): Promise<VerificationResult> {
+    return this.codeVerifier.verify(code, file, checks);
+  }
+
+  /**
+   * Quick security scan without full verification
+   */
+  quickSecurityScan(code: string, language?: string): SecurityScanResult {
+    return this.codeVerifier.scanSecurity(code, language);
+  }
+
+  /**
+   * Verify imports only
+   */
+  verifyImports(code: string, file?: string): ImportVerification {
+    return this.codeVerifier.verifyImports(code, file);
+  }
+
+  /**
+   * Check dependencies only
+   */
+  checkCodeDependencies(code: string): DependencyCheckResult {
+    return this.codeVerifier.checkDependencies(code);
   }
 
   shutdown(): void {

@@ -64,6 +64,7 @@ export async function handleMemoryStatus(
 
 /**
  * Get project summary
+ * Enhanced with proactive context resurrection for "Welcome back!" experience
  */
 async function handleProjectSummary(
   engine: MemoryLayerEngine,
@@ -78,7 +79,11 @@ async function handleProjectSummary(
   sourcesUsed.push('get_learning_stats');
   const learningStats = engine.getLearningStats();
 
-  return {
+  // Get resurrection data for proactive "Welcome back!" messaging
+  sourcesUsed.push('resurrect_context');
+  const resurrection = engine.resurrectContext();
+
+  const response: MemoryStatusResponse = {
     sources_used: sourcesUsed,
     project: {
       name: summary.name,
@@ -100,6 +105,20 @@ async function handleProjectSummary(
       cache_size: learningStats.hotCacheStats.size,
     },
   };
+
+  // Add resurrection data if there's meaningful context to resume
+  if (resurrection.activeFiles.length > 0 || resurrection.lastQueries.length > 0) {
+    (response as MemoryStatusResponse & { welcome_back?: unknown }).welcome_back = {
+      summary: resurrection.summary,
+      active_files: resurrection.activeFiles.slice(0, 5),
+      last_queries: resurrection.lastQueries.slice(0, 3),
+      possible_blocker: resurrection.possibleBlocker,
+      suggested_actions: resurrection.suggestedActions,
+      time_since_last_active: resurrection.timeSinceLastActive,
+    };
+  }
+
+  return response;
 }
 
 /**
