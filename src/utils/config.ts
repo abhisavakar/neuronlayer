@@ -14,20 +14,165 @@ export function getDefaultConfig(projectPath: string): MemoryLayerConfig {
     maxTokens: 6000,
     embeddingModel: 'Xenova/all-MiniLM-L6-v2', // Fallback model, faster and smaller
     watchIgnore: [
-      '**/node_modules/**',
+      // ===== Version Control =====
       '**/.git/**',
+      '**/.svn/**',
+      '**/.hg/**',
+
+      // ===== Node.js / JavaScript =====
+      '**/node_modules/**',
+      '**/bower_components/**',
+      '**/.npm/**',
+      '**/.yarn/**',
+      '**/.pnp.*',
+
+      // ===== Build Outputs =====
       '**/dist/**',
       '**/build/**',
+      '**/out/**',
+      '**/output/**',
+      '**/_build/**',
+      '**/public/build/**',
+
+      // ===== Next.js =====
       '**/.next/**',
+      '**/.vercel/**',
+
+      // ===== Nuxt.js =====
+      '**/.nuxt/**',
+      '**/.output/**',
+
+      // ===== Vite / Rollup / Parcel =====
+      '**/.vite/**',
+      '**/.cache/**',
+      '**/.parcel-cache/**',
+      '**/.turbo/**',
+      '**/.svelte-kit/**',
+
+      // ===== Python =====
+      '**/.venv/**',
+      '**/venv/**',
+      '**/env/**',
+      '**/.env/**',
+      '**/virtualenv/**',
+      '**/__pycache__/**',
+      '**/*.pyc',
+      '**/*.pyo',
+      '**/*.pyd',
+      '**/.Python',
+      '**/*.egg-info/**',
+      '**/*.egg/**',
+      '**/eggs/**',
+      '**/.eggs/**',
+      '**/pip-wheel-metadata/**',
+      '**/.pytest_cache/**',
+      '**/.mypy_cache/**',
+      '**/.ruff_cache/**',
+      '**/.tox/**',
+      '**/.nox/**',
+      '**/htmlcov/**',
+      '**/.coverage',
+      '**/.hypothesis/**',
+
+      // ===== Django =====
+      '**/staticfiles/**',
+      '**/static_collected/**',
+      '**/media/**',
+      '**/*.sqlite3',
+      '**/db.sqlite3',
+
+      // ===== FastAPI / Flask =====
+      '**/instance/**',
+
+      // ===== Ruby / Rails =====
+      '**/vendor/bundle/**',
+      '**/.bundle/**',
+      '**/tmp/**',
+      '**/log/**',
+
+      // ===== Go =====
+      '**/vendor/**',
+
+      // ===== Rust =====
+      '**/target/**',
+      '**/*.rlib',
+
+      // ===== Java / Kotlin / Gradle / Maven =====
+      '**/.gradle/**',
+      '**/.mvn/**',
+      '**/target/**',
+      '**/*.class',
+      '**/*.jar',
+      '**/*.war',
+
+      // ===== .NET / C# =====
+      '**/bin/**',
+      '**/obj/**',
+      '**/packages/**',
+      '**/*.dll',
+      '**/*.exe',
+
+      // ===== iOS / macOS =====
+      '**/Pods/**',
+      '**/.build/**',
+      '**/DerivedData/**',
+      '**/*.xcworkspace/**',
+
+      // ===== Android =====
+      '**/.gradle/**',
+      '**/local.properties',
+
+      // ===== IDE / Editor =====
+      '**/.idea/**',
+      '**/.vscode/**',
+      '**/*.swp',
+      '**/*.swo',
+      '**/*.sublime-*',
+      '**/.project',
+      '**/.classpath',
+      '**/.settings/**',
+
+      // ===== Testing / Coverage =====
       '**/coverage/**',
+      '**/.nyc_output/**',
+      '**/test-results/**',
+      '**/jest-cache/**',
+
+      // ===== Misc Generated / Cache =====
+      '**/.DS_Store',
+      '**/Thumbs.db',
       '**/*.min.js',
       '**/*.min.css',
       '**/*.map',
+      '**/*.chunk.js',
+      '**/*.bundle.js',
+
+      // ===== Lock Files =====
       '**/package-lock.json',
       '**/yarn.lock',
       '**/pnpm-lock.yaml',
-      '**/.env*',
-      '**/*.log'
+      '**/Pipfile.lock',
+      '**/poetry.lock',
+      '**/Gemfile.lock',
+      '**/Cargo.lock',
+      '**/composer.lock',
+      '**/go.sum',
+
+      // ===== Environment / Secrets =====
+      '**/.env',
+      '**/.env.*',
+      '**/*.env',
+      '**/.envrc',
+      '**/secrets/**',
+      '**/*.pem',
+      '**/*.key',
+
+      // ===== Logs / Temp =====
+      '**/*.log',
+      '**/logs/**',
+      '**/*.tmp',
+      '**/*.temp',
+      '**/temp/**'
     ]
   };
 }
