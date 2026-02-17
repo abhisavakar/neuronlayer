@@ -385,6 +385,98 @@ export class LearningEngine {
     return result.changes;
   }
 
+  /**
+   * Update importance scores for all files based on usage patterns
+   * Called by background intelligence loop
+   */
+  updateImportanceScores(): void {
+    try {
+      // Get all files with access stats
+      const stmt = this.db.prepare(`
+        SELECT f.id, f.path, fa.access_count, fa.last_accessed, fa.relevance_score
+        FROM files f
+        LEFT JOIN file_access fa ON fa.file_id = f.id
+      `);
+
+      const files = stmt.all() as Array<{
+        id: number;
+        path: string;
+        access_count: number | null;
+        last_accessed: number | null;
+        relevance_score: number | null;
+      }>;
+
+      // Calculate and update importance scores
+      const updateStmt = this.db.prepare(`
+        INSERT INTO file_access (file_id, access_count, last_accessed, relevance_score)
+        VALUES (?, COALESCE(?, 0), COALESCE(?, unixepoch()), ?)
+        ON CONFLICT(file_id) DO UPDATE SET
+          relevance_score = excluded.relevance_score
+      `);
+
+      for (const file of files) {
+        const importance = this.calculateImportance(
+          file.access_count || 0,
+          file.last_accessed || Math.floor(Date.now() / 1000),
+          file.path
+        );
+
+        updateStmt.run(
+          file.id,
+          file.access_count,
+          file.last_accessed,
+          importance
+        );
+      }
+    } catch (error) {
+      console.error('Error updating importance scores:', error);
+    }
+  }
+
+  /**
+   * Calculate importance score for a file based on multiple factors
+   */
+  calculateImportance(accessCount: number, lastAccessed: number, filePath: string): number {
+    // Factor 1: Access frequency (log scale to avoid extreme boosts)
+    const frequencyScore = Math.log10(1 + accessCount) * 0.4;
+
+    // Factor 2: Recency (how recently was it accessed)
+    const hoursSinceAccess = (Date.now() / 1000 - lastAccessed) / 3600;
+    const recencyScore = Math.exp(-hoursSinceAccess / 168) * 0.3; // Decay over 1 week
+
+    // Factor 3: File importance heuristics
+    let fileImportance = 0.3; // Default
+
+    // Boost important file types
+    if (filePath.includes('index.') || filePath.includes('main.')) {
+      fileImportance = 0.5;
+    } else if (filePath.includes('.config.') || filePath.includes('config/')) {
+      fileImportance = 0.45;
+    } else if (filePath.includes('.test.') || filePath.includes('.spec.')) {
+      fileImportance = 0.25; // Tests slightly less important for context
+    } else if (filePath.includes('/types/') || filePath.includes('.d.ts')) {
+      fileImportance = 0.4; // Type definitions are often helpful
+    }
+
+    // Combine factors (max 1.0)
+    return Math.min(1.0, frequencyScore + recencyScore + fileImportance);
+  }
+
+  /**
+   * Get importance score for a specific file
+   */
+  getFileImportance(filePath: string): number {
+    const stmt = this.db.prepare(`
+      SELECT fa.relevance_score
+      FROM files f
+      JOIN file_access fa ON fa.file_id = f.id
+      WHERE f.path = ?
+    `);
+
+    const result = stmt.get(filePath) as { relevance_score: number } | undefined;
+    return result?.relevance_score || 0.5;
+  }
+
   private hashQuery(query: string): string {
     // Normalize query for matching
     const normalized = query.toLowerCase().trim().replace(/\s+/g, ' ');

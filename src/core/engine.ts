@@ -12,17 +12,22 @@ import { LearningEngine } from './learning.js';
 import { FileSummarizer } from './summarizer.js';
 import { ProjectManager, type ProjectInfo } from './project-manager.js';
 import { ADRExporter, type ADRExportOptions } from './adr-exporter.js';
-import { FeatureContextManager } from './feature-context.js';
+import { FeatureContextManager, type ResurrectedContext, type ContextResurrectionOptions } from './feature-context.js';
 import { LivingDocumentationEngine } from './living-docs/index.js';
 import { ContextRotPrevention } from './context-rot/index.js';
 import { ConfidenceScorer } from './confidence/index.js';
 import { ChangeIntelligence } from './change-intelligence/index.js';
 import { ArchitectureEnforcement } from './architecture/index.js';
 import { TestAwareness } from './test-awareness/index.js';
+import { GhostMode, type GhostInsight, type ConflictWarning } from './ghost-mode.js';
+import { DejaVuDetector, type DejaVuMatch } from './deja-vu.js';
 import { detectLanguage, getPreview, countLines } from '../utils/files.js';
 import type { MemoryLayerConfig, AssembledContext, Decision, ProjectSummary, SearchResult, CodeSymbol, SymbolKind, ActiveFeatureContext, HotContext } from '../types/index.js';
 import type { ArchitectureDoc, ComponentDoc, DailyChangelog, ChangelogOptions, ValidationResult, ActivityResult, UndocumentedItem, ContextHealth, CompactionResult, CompactionOptions, CriticalContext, DriftResult, ConfidenceResult, ConfidenceLevel, ConfidenceSources, ConflictResult, ChangeQueryResult, ChangeQueryOptions, Diagnosis, PastBug, FixSuggestion, Change, Pattern, PatternCategory, PatternValidationResult, ExistingFunction, TestInfo, TestFramework, TestValidationResult, TestUpdate, TestCoverage } from '../types/documentation.js';
 import type Database from 'better-sqlite3';
+
+// Re-export types for external use
+export type { GhostInsight, ConflictWarning, DejaVuMatch, ResurrectedContext };
 
 export class MemoryLayerEngine {
   private config: MemoryLayerConfig;
@@ -44,7 +49,13 @@ export class MemoryLayerEngine {
   private changeIntelligence: ChangeIntelligence;
   private architectureEnforcement: ArchitectureEnforcement;
   private testAwareness: TestAwareness;
+  private ghostMode: GhostMode;
+  private dejaVu: DejaVuDetector;
+  private backgroundInterval: NodeJS.Timeout | null = null;
   private initialized = false;
+
+  // Background intelligence settings
+  private readonly BACKGROUND_REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
   constructor(config: MemoryLayerConfig) {
     this.config = config;
@@ -134,6 +145,19 @@ export class MemoryLayerEngine {
       this.tier2
     );
 
+    // Phase 12: Initialize Ghost Mode (silent intelligence layer)
+    this.ghostMode = new GhostMode(
+      this.tier2,
+      this.indexer.getEmbeddingGenerator()
+    );
+
+    // Phase 12: Initialize Déjà Vu Detector
+    this.dejaVu = new DejaVuDetector(
+      this.db,
+      this.tier2,
+      this.indexer.getEmbeddingGenerator()
+    );
+
     // Register this project
     const projectInfo = this.projectManager.registerProject(config.projectPath);
     this.projectManager.setActiveProject(projectInfo.id);
@@ -207,8 +231,53 @@ export class MemoryLayerEngine {
       console.error(`Test awareness: ${testResult.testsIndexed} tests indexed (${testResult.framework})`);
     }
 
+    // Start background intelligence loop
+    this.startBackgroundIntelligence();
+
     this.initialized = true;
     console.error('MemoryLayer initialized');
+  }
+
+  /**
+   * Background Intelligence Loop - continuously learn and update without user intervention
+   */
+  private startBackgroundIntelligence(): void {
+    // Clear any existing interval
+    if (this.backgroundInterval) {
+      clearInterval(this.backgroundInterval);
+    }
+
+    // Refresh git changes every 5 minutes
+    this.backgroundInterval = setInterval(() => {
+      try {
+        // Sync recent git changes
+        const synced = this.changeIntelligence.syncFromGit(20);
+        if (synced > 0) {
+          console.error(`[Background] Synced ${synced} recent changes from git`);
+        }
+
+        // Update importance scores for recently accessed files
+        this.learningEngine.updateImportanceScores();
+      } catch (error) {
+        // Silent fail for background tasks
+        console.error('[Background] Error in intelligence loop:', error);
+      }
+    }, this.BACKGROUND_REFRESH_INTERVAL_MS);
+  }
+
+  /**
+   * Record AI feedback - learn from what suggestions were actually used
+   */
+  recordAIFeedback(suggestion: string, wasUsed: boolean, correction?: string): void {
+    this.learningEngine.trackEvent({
+      eventType: wasUsed ? 'context_used' : 'context_ignored',
+      query: suggestion,
+    });
+
+    // If there was a correction, record it for learning
+    if (correction) {
+      this.dejaVu.recordQuery(correction, [], true);
+    }
   }
 
   async getContext(query: string, currentFile?: string, maxTokens?: number): Promise<AssembledContext> {
@@ -1186,8 +1255,123 @@ export class MemoryLayerEngine {
     return this.testAwareness['testSuggester'].formatTestUpdates(updates);
   }
 
+  // ========== Phase 12: Ghost Mode + Déjà Vu ==========
+
+  /**
+   * Get ghost insight - what the system knows about current work
+   */
+  getGhostInsight(): GhostInsight {
+    return this.ghostMode.getInsight();
+  }
+
+  /**
+   * Get ghost insight with conflict check for specific code
+   */
+  getGhostInsightForCode(code: string, targetFile?: string): GhostInsight {
+    return this.ghostMode.getInsightForCode(code, targetFile);
+  }
+
+  /**
+   * Check for conflicts with past decisions
+   */
+  checkGhostConflicts(code: string, targetFile?: string): ConflictWarning[] {
+    return this.ghostMode.checkConflicts(code, targetFile);
+  }
+
+  /**
+   * Notify ghost mode of file access (for silent tracking)
+   */
+  async notifyFileAccess(filePath: string): Promise<void> {
+    await this.ghostMode.onFileAccess(filePath);
+  }
+
+  /**
+   * Find similar past problems (déjà vu detection)
+   */
+  async findDejaVu(query: string, limit?: number): Promise<DejaVuMatch[]> {
+    return this.dejaVu.findSimilar(query, limit);
+  }
+
+  /**
+   * Record query for future déjà vu detection
+   */
+  recordQueryForDejaVu(query: string, files: string[], wasUseful?: boolean): void {
+    this.dejaVu.recordQuery(query, files, wasUseful);
+  }
+
+  /**
+   * Resurrect context from last session
+   * "Welcome back! Last time you were working on X, stuck on Y"
+   */
+  resurrectContext(options?: ContextResurrectionOptions): ResurrectedContext {
+    return this.featureContextManager.resurrectContext(options);
+  }
+
+  /**
+   * Get all contexts that can be resurrected
+   */
+  getResurrectableContexts(): Array<{ id: string; name: string; lastActive: Date; summary: string }> {
+    return this.featureContextManager.getResurrectableContexts();
+  }
+
+  /**
+   * Get comprehensive ghost mode data
+   * Combines ghost insight, déjà vu matches, and resurrection data
+   */
+  async getFullGhostData(
+    mode: 'full' | 'conflicts' | 'dejavu' | 'resurrect' = 'full',
+    options?: { code?: string; file?: string; query?: string }
+  ): Promise<{
+    ghost?: GhostInsight;
+    dejaVu?: DejaVuMatch[];
+    resurrection?: ResurrectedContext;
+    conflicts?: ConflictWarning[];
+  }> {
+    const result: {
+      ghost?: GhostInsight;
+      dejaVu?: DejaVuMatch[];
+      resurrection?: ResurrectedContext;
+      conflicts?: ConflictWarning[];
+    } = {};
+
+    if (mode === 'full' || mode === 'conflicts') {
+      if (options?.code) {
+        result.ghost = this.ghostMode.getInsightForCode(options.code, options.file);
+        result.conflicts = result.ghost.potentialConflicts;
+      } else {
+        result.ghost = this.ghostMode.getInsight();
+      }
+    }
+
+    if (mode === 'full' || mode === 'dejavu') {
+      if (options?.query || options?.code) {
+        result.dejaVu = await this.dejaVu.findSimilar(options.query || options.code || '', 5);
+      }
+    }
+
+    if (mode === 'full' || mode === 'resurrect') {
+      result.resurrection = this.featureContextManager.resurrectContext();
+    }
+
+    return result;
+  }
+
+  /**
+   * Get déjà vu statistics
+   */
+  getDejaVuStats(): { totalQueries: number; usefulQueries: number; avgUsefulness: number } {
+    return this.dejaVu.getStats();
+  }
+
   shutdown(): void {
     console.error('Shutting down MemoryLayer...');
+
+    // Stop background intelligence
+    if (this.backgroundInterval) {
+      clearInterval(this.backgroundInterval);
+      this.backgroundInterval = null;
+    }
+
     this.indexer.stopWatching();
     this.tier1.save();
     this.featureContextManager.shutdown();

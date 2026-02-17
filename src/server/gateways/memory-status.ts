@@ -430,18 +430,25 @@ async function handleCriticalContext(
 }
 
 /**
- * Learning stats
+ * Learning stats - enhanced with context resurrection for seamless session continuity
  */
 async function handleLearningStats(
   engine: MemoryLayerEngine,
   input: MemoryStatusInput,
   sourcesUsed: string[]
 ): Promise<MemoryStatusResponse> {
-  sourcesUsed.push('get_learning_stats');
+  sourcesUsed.push('get_learning_stats', 'resurrect_context');
 
   const stats = engine.getLearningStats();
 
-  return {
+  // Get context resurrection for session continuity
+  const resurrection = engine.resurrectContext();
+  const resurrectableContexts = engine.getResurrectableContexts();
+
+  // Get déjà vu stats
+  const dejaVuStats = engine.getDejaVuStats();
+
+  const response: MemoryStatusResponse = {
     sources_used: sourcesUsed,
     learning: {
       total_queries: stats.usageStats.totalQueries,
@@ -450,4 +457,34 @@ async function handleLearningStats(
       cache_size: stats.hotCacheStats.size,
     },
   };
+
+  // Add resurrection data for "Welcome back!" experience
+  (response as MemoryStatusResponse & { resurrection?: unknown }).resurrection = {
+    summary: resurrection.summary,
+    active_files: resurrection.activeFiles,
+    last_queries: resurrection.lastQueries,
+    possible_blocker: resurrection.possibleBlocker,
+    suggested_actions: resurrection.suggestedActions,
+    time_since_last_active: resurrection.timeSinceLastActive,
+  };
+
+  // Add resurrectable contexts
+  if (resurrectableContexts.length > 0) {
+    (response as MemoryStatusResponse & { resurrectable_contexts?: unknown }).resurrectable_contexts =
+      resurrectableContexts.map(c => ({
+        id: c.id,
+        name: c.name,
+        last_active: c.lastActive.toISOString(),
+        summary: c.summary,
+      }));
+  }
+
+  // Add déjà vu stats
+  (response as MemoryStatusResponse & { deja_vu_stats?: unknown }).deja_vu_stats = {
+    total_queries: dejaVuStats.totalQueries,
+    useful_queries: dejaVuStats.usefulQueries,
+    avg_usefulness: Math.round(dejaVuStats.avgUsefulness * 100) / 100,
+  };
+
+  return response;
 }

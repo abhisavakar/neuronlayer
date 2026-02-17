@@ -58,6 +58,7 @@ export async function handleMemoryQuery(
 
 /**
  * Combined context + search query (default behavior)
+ * Enhanced with déjà vu detection and proactive predictions
  */
 async function handleContextQuery(
   engine: MemoryLayerEngine,
@@ -66,10 +67,16 @@ async function handleContextQuery(
 ): Promise<MemoryQueryResponse> {
   sourcesUsed.push('get_context', 'search_codebase');
 
-  // Run context and search in parallel
-  const [contextResult, searchResults] = await Promise.all([
+  // Notify ghost mode of file access for silent tracking
+  if (input.file) {
+    engine.notifyFileAccess(input.file).catch(() => {});
+  }
+
+  // Run context, search, and déjà vu in parallel
+  const [contextResult, searchResults, dejaVuMatches] = await Promise.all([
     engine.getContext(input.query, input.file, input.max_tokens),
-    engine.searchCodebase(input.query, input.max_results || 10)
+    engine.searchCodebase(input.query, input.max_results || 10),
+    engine.findDejaVu(input.query, 3), // Check for similar past problems
   ]);
 
   const response = aggregateQueryResults(
@@ -77,6 +84,32 @@ async function handleContextQuery(
     searchResults,
     sourcesUsed
   ) as MemoryQueryResponse;
+
+  // Add déjà vu matches if found (proactive intelligence)
+  if (dejaVuMatches.length > 0) {
+    sourcesUsed.push('deja_vu');
+    (response as MemoryQueryResponse & { deja_vu?: unknown }).deja_vu = {
+      has_matches: true,
+      matches: dejaVuMatches.map(m => ({
+        type: m.type,
+        message: m.message,
+        file: m.file,
+        similarity: m.similarity,
+        when: m.when.toISOString(),
+      })),
+    };
+  }
+
+  // Add predicted files (proactive context)
+  if (input.file) {
+    sourcesUsed.push('predict_files');
+    const predictedFiles = engine.getPredictedFiles(input.file, input.query);
+    if (predictedFiles.length > 0) {
+      (response as MemoryQueryResponse & { predictions?: unknown }).predictions = {
+        likely_next_files: predictedFiles.slice(0, 5),
+      };
+    }
+  }
 
   // If confidence requested, add it
   if (input.include_confidence && input.code) {
@@ -89,6 +122,9 @@ async function handleContextQuery(
       indicator: engine.getConfidenceIndicator(confidence.confidence),
     };
   }
+
+  // Record query for future déjà vu detection
+  engine.recordQueryForDejaVu(input.query, contextResult.sources);
 
   return response;
 }

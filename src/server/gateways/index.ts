@@ -1,10 +1,12 @@
 /**
  * Gateway Pattern Implementation
  *
- * Reduces 51 MCP tools to 4 gateway tools + 6 standalone (10 total),
+ * Reduces 51 MCP tools to 5 gateway tools + 6 standalone (11 total),
  * saving ~5,000 tokens per API call on tool description overhead.
  *
  * Benchmark Context: 759x speedup, 51.7% token reduction, p < 0.001, Cohen's d = 3.46
+ *
+ * Phase 12: Added memory_ghost for "Super Intelligent Brain" features
  */
 
 import type { MemoryLayerEngine } from '../../core/engine.js';
@@ -19,6 +21,7 @@ import { handleMemoryQuery } from './memory-query.js';
 import { handleMemoryRecord } from './memory-record.js';
 import { handleMemoryReview } from './memory-review.js';
 import { handleMemoryStatus } from './memory-status.js';
+import { handleMemoryGhost, type MemoryGhostInput, type MemoryGhostResponse } from './memory-ghost.js';
 
 // ============================================================================
 // Gateway Tool Names
@@ -29,6 +32,7 @@ export const GATEWAY_TOOLS = [
   'memory_record',
   'memory_review',
   'memory_status',
+  'memory_ghost',
 ] as const;
 
 export type GatewayToolName = typeof GATEWAY_TOOLS[number];
@@ -224,6 +228,40 @@ export const gatewayDefinitions: ToolDefinition[] = [
         }
       }
     }
+  },
+  {
+    name: 'memory_ghost',
+    description: 'The "Super Intelligent Brain" - provides proactive intelligence. Use mode="conflicts" before writing code to check for decision conflicts. Use mode="dejavu" to find "You solved this before" moments. Use mode="resurrect" at session start to get "Welcome back! Last time you were working on X". Use mode="full" (default) for complete ghost insight. Returns conflict warnings, déjà vu matches, and session resurrection data.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        mode: {
+          type: 'string',
+          enum: ['full', 'conflicts', 'dejavu', 'resurrect'],
+          description: 'What to check (default: full)'
+        },
+        code: {
+          type: 'string',
+          description: 'Code to check for conflicts/déjà vu'
+        },
+        file: {
+          type: 'string',
+          description: 'Current file being worked on'
+        },
+        query: {
+          type: 'string',
+          description: 'Query for déjà vu search'
+        },
+        feature_name: {
+          type: 'string',
+          description: 'Feature name for resurrection'
+        },
+        max_results: {
+          type: 'number',
+          description: 'Maximum déjà vu results (default: 5)'
+        }
+      }
+    }
   }
 ];
 
@@ -371,6 +409,9 @@ export async function handleGatewayCall(
     case 'memory_status':
       return handleMemoryStatus(engine, args as unknown as MemoryStatusInput);
 
+    case 'memory_ghost':
+      return handleMemoryGhost(engine, args as unknown as MemoryGhostInput);
+
     default:
       throw new Error(`Unknown gateway: ${gatewayName}`);
   }
@@ -388,3 +429,5 @@ export type {
   MemoryStatusInput,
   MemoryStatusResponse,
 } from './types.js';
+
+export type { MemoryGhostInput, MemoryGhostResponse } from './memory-ghost.js';

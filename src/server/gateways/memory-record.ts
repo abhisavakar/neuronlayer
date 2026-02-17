@@ -3,11 +3,70 @@
  *
  * Routes to: record_decision, record_decision_with_author, learn_pattern,
  * mark_context_useful, set_feature_context, mark_critical, add_pattern_example
+ *
+ * Smart Decision Detection: Auto-detects when content looks like a decision
  */
 
 import type { MemoryLayerEngine } from '../../core/engine.js';
 import type { MemoryRecordInput, MemoryRecordResponse } from './types.js';
 import { detectRecordType, validateRecordInput } from './router.js';
+
+// Patterns that indicate decision-like content
+const DECISION_PATTERNS = [
+  /we('ll| will) use/i,
+  /decided to/i,
+  /going with/i,
+  /instead of/i,
+  /because.*better/i,
+  /chose/i,
+  /choosing/i,
+  /prefer/i,
+  /preferring/i,
+  /let's use/i,
+  /we should use/i,
+  /the approach is/i,
+  /our strategy is/i,
+  /we're using/i,
+  /will implement.*using/i,
+  /architecture.*decision/i,
+  /technical.*decision/i,
+];
+
+/**
+ * Check if content looks like an architectural decision
+ */
+function looksLikeDecision(content: string): boolean {
+  return DECISION_PATTERNS.some(re => re.test(content));
+}
+
+/**
+ * Extract a potential title from decision-like content
+ */
+function extractDecisionTitle(content: string): string | null {
+  // Try to find a clear decision statement
+  const patterns = [
+    /(?:decided to|we'll|we will|going with|chose|choosing)\s+(.+?)(?:\.|$)/i,
+    /(?:use|using)\s+(\w+(?:\s+\w+){0,3})\s+(?:for|instead|because)/i,
+    /(?:prefer|preferring)\s+(.+?)\s+(?:over|instead|to)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = content.match(pattern);
+    if (match && match[1]) {
+      // Capitalize first letter and clean up
+      const title = match[1].trim();
+      return title.charAt(0).toUpperCase() + title.slice(1);
+    }
+  }
+
+  // Fallback: use first sentence, truncated
+  const firstSentence = content.split(/[.!?]/)[0];
+  if (firstSentence && firstSentence.length > 0) {
+    return firstSentence.slice(0, 50) + (firstSentence.length > 50 ? '...' : '');
+  }
+
+  return null;
+}
 
 /**
  * Handle a memory_record gateway call
@@ -26,18 +85,44 @@ export async function handleMemoryRecord(
     };
   }
 
-  const recordType = validation.type;
+  let recordType = validation.type;
+  let warnings: MemoryRecordResponse['warnings'] = undefined;
+
+  // Smart Decision Detection: Check if content looks like a decision
+  if (recordType !== 'decision' && looksLikeDecision(input.content)) {
+    if (!input.title) {
+      // Content looks like a decision but no title - add hint
+      const suggestedTitle = extractDecisionTitle(input.content);
+      warnings = [{
+        type: 'hint',
+        message: `This looks like an architectural decision. ${suggestedTitle
+          ? `Suggested title: "${suggestedTitle}". `
+          : ''}Add a title to save it as a decision.`,
+        severity: 'low',
+      }];
+
+      // If the caller didn't specify a type and it looks like a decision, offer to record it
+      if (!input.type && suggestedTitle) {
+        // Auto-upgrade to decision if we can extract a title
+        recordType = 'decision';
+        input.title = suggestedTitle;
+      }
+    } else {
+      // Has title and looks like decision - treat as decision
+      recordType = 'decision';
+    }
+  }
 
   // Pre-check conflicts for decisions
-  let warnings: MemoryRecordResponse['warnings'] = undefined;
   if (recordType === 'decision' && input.code) {
     const conflicts = await engine.checkCodeConflicts(input.code);
     if (conflicts.hasConflicts) {
-      warnings = conflicts.conflicts.map(c => ({
-        type: 'conflict',
+      const conflictWarnings = conflicts.conflicts.map(c => ({
+        type: 'conflict' as const,
         message: `Conflicts with decision "${c.decisionTitle}": ${c.conflictDescription}`,
         severity: c.severity as 'low' | 'medium' | 'high',
       }));
+      warnings = warnings ? [...warnings, ...conflictWarnings] : conflictWarnings;
     }
   }
 

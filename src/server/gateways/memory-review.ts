@@ -59,6 +59,7 @@ export async function handleMemoryReview(
 
 /**
  * Full comprehensive review
+ * Enhanced with Ghost Mode conflict detection
  */
 async function handleFullReview(
   engine: MemoryLayerEngine,
@@ -66,6 +67,11 @@ async function handleFullReview(
   sourcesUsed: string[]
 ): Promise<MemoryReviewResponse> {
   const checks = getReviewChecks(input);
+
+  // Notify ghost mode of file access for silent tracking
+  if (input.file) {
+    engine.notifyFileAccess(input.file).catch(() => {});
+  }
 
   // Build parallel operations
   const operations: Promise<unknown>[] = [];
@@ -82,6 +88,11 @@ async function handleFullReview(
     operations.push(engine.checkCodeConflicts(input.code));
     operationKeys.push('conflicts');
   }
+
+  // Always run ghost mode conflict check for proactive intelligence
+  sourcesUsed.push('ghost_conflicts');
+  operations.push(Promise.resolve(engine.checkGhostConflicts(input.code, input.file)));
+  operationKeys.push('ghost');
 
   if (checks.runConfidence) {
     sourcesUsed.push('get_confidence');
@@ -128,6 +139,12 @@ async function handleFullReview(
     fix: string;
     file?: string;
   }> | undefined;
+  const ghostResult = resultMap.ghost as Array<{
+    decision: { id: string; title: string };
+    warning: string;
+    severity: 'low' | 'medium' | 'high';
+    matchedTerms: string[];
+  }> | undefined;
 
   // Calculate risk score and aggregate
   const response = aggregateReviewResults(
@@ -141,6 +158,42 @@ async function handleFullReview(
     testsResult || null,
     sourcesUsed
   );
+
+  // Add ghost mode conflict warnings (proactive intelligence)
+  if (ghostResult && ghostResult.length > 0) {
+    // Merge ghost conflicts into the conflicts response
+    const ghostConflicts = ghostResult.map(g => ({
+      decision_id: g.decision.id,
+      decision_title: g.decision.title,
+      conflict_description: g.warning,
+      severity: g.severity,
+    }));
+
+    if (response.conflicts) {
+      // Add ghost conflicts that aren't already in the regular conflicts
+      const existingIds = new Set(response.conflicts.conflicts.map(c => c.decision_id));
+      const newConflicts = ghostConflicts.filter(c => !existingIds.has(c.decision_id));
+      response.conflicts.conflicts.push(...newConflicts);
+      response.conflicts.has_conflicts = response.conflicts.conflicts.length > 0;
+    } else if (ghostConflicts.length > 0) {
+      response.conflicts = {
+        has_conflicts: true,
+        conflicts: ghostConflicts,
+      };
+
+      // Increase risk score for ghost conflicts
+      const highSeverity = ghostConflicts.filter(c => c.severity === 'high').length;
+      const mediumSeverity = ghostConflicts.filter(c => c.severity === 'medium').length;
+      response.risk_score = Math.min(100, response.risk_score + highSeverity * 20 + mediumSeverity * 10);
+
+      // Update verdict if needed
+      if (response.risk_score >= 70) {
+        response.verdict = 'reject';
+      } else if (response.risk_score >= 30) {
+        response.verdict = 'warning';
+      }
+    }
+  }
 
   // Add similar bugs if found
   if (bugsResult && bugsResult.length > 0) {

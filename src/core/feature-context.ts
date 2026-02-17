@@ -4,6 +4,39 @@ import { dirname, join, basename } from 'path';
 import { randomUUID } from 'crypto';
 import type { ActiveFeatureContext, FeatureFile, FeatureChange, FeatureQuery, HotContext } from '../types/index.js';
 
+/**
+ * Context Resurrection - Restore mental state from last session
+ * "Last time you worked on auth, you were stuck on X"
+ */
+export interface ResurrectedContext {
+  /** What files were you working on? */
+  activeFiles: string[];
+  /** What were you trying to do? */
+  lastQueries: string[];
+  /** What decisions were made during this context? */
+  sessionDecisions: string[];
+  /** Where did you leave off? */
+  lastEditedFile: string | null;
+  lastEditTime: Date | null;
+  /** What was the blocker (if any)? */
+  possibleBlocker: string | null;
+  /** Suggested next steps */
+  suggestedActions: string[];
+  /** Context summary for AI */
+  summary: string;
+  /** Time since last activity */
+  timeSinceLastActive: string;
+}
+
+export interface ContextResurrectionOptions {
+  /** Specific feature name to resurrect */
+  featureName?: string;
+  /** Include file contents in resurrection */
+  includeFileContents?: boolean;
+  /** Maximum files to include */
+  maxFiles?: number;
+}
+
 const MAX_FILES = 20;
 const MAX_CHANGES = 50;
 const MAX_QUERIES = 20;
@@ -419,6 +452,266 @@ export class FeatureContextManager extends EventEmitter {
       return relativePath;
     }
     return join(this.projectPath, relativePath);
+  }
+
+  // ========== CONTEXT RESURRECTION ==========
+
+  /**
+   * Resurrect context from last session - restore mental state
+   * Returns what you were working on, where you left off, and possible blockers
+   */
+  resurrectContext(options: ContextResurrectionOptions = {}): ResurrectedContext {
+    const { featureName, maxFiles = 5 } = options;
+
+    // Find the context to resurrect
+    let contextToResurrect: ActiveFeatureContext | null = null;
+
+    if (featureName) {
+      // Find by name
+      contextToResurrect = this.recent.find(c =>
+        c.name.toLowerCase().includes(featureName.toLowerCase())
+      ) || null;
+
+      if (!contextToResurrect && this.current?.name.toLowerCase().includes(featureName.toLowerCase())) {
+        contextToResurrect = this.current;
+      }
+    } else {
+      // Use most recent context (current or first in recent)
+      contextToResurrect = this.current || this.recent[0] || null;
+    }
+
+    if (!contextToResurrect) {
+      return {
+        activeFiles: [],
+        lastQueries: [],
+        sessionDecisions: [],
+        lastEditedFile: null,
+        lastEditTime: null,
+        possibleBlocker: null,
+        suggestedActions: ['Start a new feature context with memory_record'],
+        summary: 'No previous context found to resurrect.',
+        timeSinceLastActive: 'N/A',
+      };
+    }
+
+    // Extract information from context
+    const activeFiles = contextToResurrect.files
+      .sort((a, b) => b.touchCount - a.touchCount)
+      .slice(0, maxFiles)
+      .map(f => f.path);
+
+    const lastQueries = contextToResurrect.queries
+      .slice(0, 3)
+      .map(q => q.query);
+
+    // Find last edited file (most recent change)
+    const lastChange = contextToResurrect.changes[0];
+    const lastEditedFile = lastChange?.file || null;
+    const lastEditTime = lastChange?.timestamp || null;
+
+    // Detect possible blocker
+    const possibleBlocker = this.detectBlocker(contextToResurrect);
+
+    // Generate suggested actions
+    const suggestedActions = this.suggestNextSteps(contextToResurrect);
+
+    // Calculate time since last active
+    const timeSinceLastActive = this.formatTimeSince(contextToResurrect.lastActiveAt);
+
+    // Generate summary
+    const summary = this.generateResurrectionSummary(contextToResurrect, possibleBlocker);
+
+    return {
+      activeFiles,
+      lastQueries,
+      sessionDecisions: [], // Would need to cross-reference with decisions storage
+      lastEditedFile,
+      lastEditTime,
+      possibleBlocker,
+      suggestedActions,
+      summary,
+      timeSinceLastActive,
+    };
+  }
+
+  /**
+   * Detect what might have been blocking progress when session ended
+   */
+  private detectBlocker(context: ActiveFeatureContext): string | null {
+    if (context.queries.length === 0) {
+      return null;
+    }
+
+    // Check last few queries for error/problem patterns
+    const errorPatterns = [
+      /error/i,
+      /fix/i,
+      /bug/i,
+      /issue/i,
+      /problem/i,
+      /not working/i,
+      /doesn't work/i,
+      /how to/i,
+      /why/i,
+      /failed/i,
+      /broken/i,
+    ];
+
+    // Check last 3 queries
+    for (let i = 0; i < Math.min(3, context.queries.length); i++) {
+      const query = context.queries[i];
+      if (!query) continue;
+
+      for (const pattern of errorPatterns) {
+        if (pattern.test(query.query)) {
+          return query.query;
+        }
+      }
+    }
+
+    // Check if the same file was touched many times (sign of struggling)
+    const fileTouchCounts = new Map<string, number>();
+    for (const change of context.changes.slice(0, 10)) {
+      const count = fileTouchCounts.get(change.file) || 0;
+      fileTouchCounts.set(change.file, count + 1);
+    }
+
+    for (const [file, count] of fileTouchCounts.entries()) {
+      if (count >= 5) {
+        return `Multiple edits to ${basename(file)} - possible implementation challenge`;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Suggest next steps based on context state
+   */
+  private suggestNextSteps(context: ActiveFeatureContext): string[] {
+    const suggestions: string[] = [];
+
+    // If there was a potential blocker, suggest addressing it
+    const blocker = this.detectBlocker(context);
+    if (blocker) {
+      suggestions.push(`Resume investigating: "${blocker.slice(0, 50)}..."`);
+    }
+
+    // Suggest continuing with most-touched files
+    const topFiles = context.files
+      .sort((a, b) => b.touchCount - a.touchCount)
+      .slice(0, 2);
+
+    if (topFiles.length > 0 && topFiles[0]) {
+      suggestions.push(`Continue working on ${basename(topFiles[0].path)}`);
+    }
+
+    // If there were recent changes, suggest reviewing them
+    if (context.changes.length > 0) {
+      suggestions.push('Review recent changes before continuing');
+    }
+
+    // Generic suggestions if nothing specific
+    if (suggestions.length === 0) {
+      suggestions.push(`Continue "${context.name}" feature work`);
+    }
+
+    return suggestions;
+  }
+
+  /**
+   * Format time since a date in human-readable form
+   */
+  private formatTimeSince(date: Date): string {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMins < 60) {
+      return `${diffMins} minutes ago`;
+    } else if (diffHours < 24) {
+      return `${diffHours} hours ago`;
+    } else if (diffDays === 1) {
+      return 'yesterday';
+    } else if (diffDays < 7) {
+      return `${diffDays} days ago`;
+    } else if (diffDays < 30) {
+      const weeks = Math.floor(diffDays / 7);
+      return `${weeks} week${weeks > 1 ? 's' : ''} ago`;
+    } else {
+      const months = Math.floor(diffDays / 30);
+      return `${months} month${months > 1 ? 's' : ''} ago`;
+    }
+  }
+
+  /**
+   * Generate a summary of the resurrection context for AI
+   */
+  private generateResurrectionSummary(context: ActiveFeatureContext, blocker: string | null): string {
+    const parts: string[] = [];
+
+    // Feature name and duration
+    const durationMs = context.lastActiveAt.getTime() - context.startedAt.getTime();
+    const durationMins = Math.round(durationMs / 60000);
+    parts.push(`Feature: "${context.name}" (${durationMins} min session)`);
+
+    // Status
+    parts.push(`Status: ${context.status}`);
+
+    // Files worked on
+    if (context.files.length > 0) {
+      const topFiles = context.files
+        .sort((a, b) => b.touchCount - a.touchCount)
+        .slice(0, 3)
+        .map(f => basename(f.path));
+      parts.push(`Main files: ${topFiles.join(', ')}`);
+    }
+
+    // Changes made
+    if (context.changes.length > 0) {
+      parts.push(`Changes: ${context.changes.length} edits`);
+    }
+
+    // Blocker
+    if (blocker) {
+      parts.push(`Possible blocker: "${blocker.slice(0, 50)}..."`);
+    }
+
+    // Last activity
+    parts.push(`Last active: ${this.formatTimeSince(context.lastActiveAt)}`);
+
+    return parts.join(' | ');
+  }
+
+  /**
+   * Get all contexts that can be resurrected
+   */
+  getResurrectableContexts(): Array<{ id: string; name: string; lastActive: Date; summary: string }> {
+    const contexts: Array<{ id: string; name: string; lastActive: Date; summary: string }> = [];
+
+    // Include current if paused
+    if (this.current && this.current.status === 'paused') {
+      contexts.push({
+        id: this.current.id,
+        name: this.current.name,
+        lastActive: this.current.lastActiveAt,
+        summary: this.generateResurrectionSummary(this.current, null),
+      });
+    }
+
+    // Include recent contexts
+    for (const ctx of this.recent) {
+      contexts.push({
+        id: ctx.id,
+        name: ctx.name,
+        lastActive: ctx.lastActiveAt,
+        summary: this.generateResurrectionSummary(ctx, null),
+      });
+    }
+
+    return contexts.sort((a, b) => b.lastActive.getTime() - a.lastActive.getTime());
   }
 
   // ========== CLEANUP ==========
