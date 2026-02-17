@@ -1,8 +1,8 @@
 # MemoryLayer
 
-> **Persistent memory for AI coding assistants**
+> **AI Memory Infrastructure for Coding Agents**
 
-An MCP server that helps AI assistants remember your decisions, understand your codebase, and not repeat past mistakes.
+Like Redis is a caching layer for applications, MemoryLayer is a memory layer for AI coding assistants.
 
 Works with **Claude Code**, **OpenCode**, **Claude Desktop**, and any MCP-compatible coding agent.
 
@@ -10,17 +10,44 @@ Works with **Claude Code**, **OpenCode**, **Claude Desktop**, and any MCP-compat
 
 ## The Problem
 
-AI coding assistants forget everything. You explain your architecture, and 10 minutes later they suggest something that contradicts it. They invent libraries that don't exist. They create functions you already have.
+AI coding assistants have no long-term memory. They forget your decisions, reinvent code that already exists, and lose context between sessions.
 
-## What MemoryLayer Does
+## What MemoryLayer Is
 
-**It gives AI assistants memory that persists across sessions.**
+**A memory layer that gives AI coding assistants persistent memory.**
 
-1. **Remembers your decisions** - "We use JWT for auth" stays remembered
-2. **Knows your codebase** - Semantic search finds code by meaning
-3. **Catches hallucinations** - Verifies imports actually exist
-4. **Surfaces past context** - "You solved this 2 weeks ago in auth.ts"
-5. **Warns about conflicts** - Alerts when code contradicts past decisions
+```
+┌─────────────────────────────────┐
+│      AI Coding Assistant        │
+│   (Claude Code, OpenCode, etc)  │
+└─────────────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────┐
+│         MemoryLayer             │  ← We are here
+│    (AI Memory Infrastructure)   │
+├─────────────────────────────────┤
+│  • Decision memory              │
+│  • Codebase understanding       │
+│  • Session context              │
+│  • Pattern recognition          │
+└─────────────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────┐
+│        Your Codebase            │
+└─────────────────────────────────┘
+```
+
+## What It Does
+
+| Capability | What it means |
+|------------|---------------|
+| **Decision Memory** | AI remembers "we use PostgreSQL" and warns if it suggests MongoDB |
+| **Semantic Search** | Find code by meaning, not just keywords |
+| **Hallucination Check** | Catches when AI invents packages that don't exist |
+| **Context Resurrection** | "Welcome back, you were working on auth..." |
+| **Conflict Detection** | Warns when new code contradicts past decisions |
 
 ---
 
@@ -35,10 +62,10 @@ Without MemoryLayer:
 
 With MemoryLayer:
   You: "We decided to use PostgreSQL"
-  AI:  [Records decision]
+  AI:  [Records to memory layer]
   ...later...
   AI:  "I'll add this to your PostgreSQL schema"
-       (Or warns if it tries to use MongoDB)
+       (Memory layer enforces past decisions)
 ```
 
 ---
@@ -54,7 +81,7 @@ npm run build
 
 ### Claude Code / OpenCode
 
-Add to your MCP config (`~/.claude/claude_desktop_config.json` or similar):
+Add to your MCP config:
 
 ```json
 {
@@ -69,7 +96,7 @@ Add to your MCP config (`~/.claude/claude_desktop_config.json` or similar):
 
 ### Any MCP-Compatible Agent
 
-MemoryLayer is a standard MCP server. Point your agent to:
+MemoryLayer is a standard MCP server:
 ```
 node /path/to/memorylayer/dist/index.js /path/to/your/project
 ```
@@ -78,94 +105,87 @@ node /path/to/memorylayer/dist/index.js /path/to/your/project
 
 ## Core Features
 
-### 1. Decision Memory
-
-Record architectural decisions. MemoryLayer remembers them and warns when code conflicts.
-
+### Decision Memory
 ```
 "Record decision: Use REST API, not GraphQL"
-→ Saved. Will warn if GraphQL code is written later.
+→ Stored. AI will be warned if it writes GraphQL later.
 ```
 
-### 2. Semantic Code Search
-
-Find code by what it does, not just keywords.
-
+### Semantic Code Search
 ```
 "How does authentication work?"
-→ Returns: auth middleware, login handlers, token validation
-  (Not just files with "auth" in the name)
+→ Returns relevant code by meaning, not just filename matching
 ```
 
-### 3. Import Verification
-
-Catches when AI hallucinates packages that don't exist.
-
+### Import Verification
 ```
 AI writes: import { foo } from 'made-up-package'
 → Warning: Package 'made-up-package' is not installed
 ```
 
-### 4. Context Resurrection
-
-Remembers what you were working on across sessions.
-
+### Context Resurrection
 ```
 "What was I working on?"
-→ "Last session you were debugging token refresh in auth.ts.
-   You seemed stuck on handling expired tokens."
+→ "Last session: debugging token refresh in auth.ts"
 ```
 
-### 5. Déjà Vu Detection
-
-Surfaces similar problems you've solved before.
-
+### Déjà Vu Detection
 ```
 "How do I handle API errors?"
-→ "You solved something similar 2 weeks ago in src/api/client.ts"
+→ "You solved this 2 weeks ago in src/api/client.ts"
 ```
+
+---
+
+## How We're Different
+
+| | Vector DB (Pinecone) | Framework (LangChain) | **MemoryLayer** |
+|-|---------------------|----------------------|-----------------|
+| **Purpose** | Store embeddings | Orchestrate AI | Persistent memory for coding agents |
+| **Scope** | General storage | General AI apps | Coding-specific |
+| **Context** | You build it | You build it | Built-in (decisions, patterns, sessions) |
 
 ---
 
 ## The 6 Tools
 
-| Tool | What it does |
-|------|--------------|
+| Tool | Purpose |
+|------|---------|
 | `memory_query` | Search codebase, get context |
 | `memory_record` | Save decisions, patterns |
-| `memory_review` | Check code against patterns/decisions |
+| `memory_review` | Check code against decisions |
 | `memory_verify` | Verify imports exist |
 | `memory_status` | Project overview |
 | `memory_ghost` | Proactive conflict detection |
 
 ---
 
-## How It Works
+## Architecture
 
 ```
-Your AI Assistant (Claude, etc.)
-         │
-         │ MCP Protocol
-         ▼
-    MemoryLayer
-    ├── Decision Store (SQLite)
-    ├── Code Index (Embeddings)
-    ├── Pattern Memory
-    └── Session Context
-         │
-         ▼
-    Local Storage (~50-200MB)
+AI Assistant
+     │
+     │ MCP Protocol
+     ▼
+MemoryLayer
+├── Decision Store (SQLite)
+├── Code Index (Embeddings)
+├── Pattern Memory
+└── Session Context
+     │
+     ▼
+Local Storage (~50-200MB)
 ```
 
-Everything runs locally. No cloud. Embeddings generated with transformers.js.
+Everything runs locally. No cloud. No data leaves your machine.
 
 ---
 
 ## What This Is NOT
 
-- **Not a security scanner** - We do basic pattern checks, but use real tools (Semgrep, npm audit) for security
-- **Not a replacement for tests** - We track test relationships, but don't run them
-- **Not magic** - AI will still make mistakes, just fewer of them
+- **Not a vector database** - We use embeddings, but we're a memory layer, not storage
+- **Not a security scanner** - Basic pattern checks only; use real tools for security
+- **Not magic** - AI still makes mistakes, just fewer
 
 ---
 
@@ -186,5 +206,6 @@ Proprietary. See LICENSE for details.
 ---
 
 <p align="center">
-  <i>MemoryLayer - Because AI shouldn't forget what you told it</i>
+  <b>MemoryLayer</b><br>
+  <i>The missing memory layer for AI coding assistants</i>
 </p>
