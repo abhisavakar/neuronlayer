@@ -74,13 +74,15 @@ export class ChangeTracker {
             const [added, removed, filePath] = fileLine.split('\t');
             if (!filePath) continue;
 
-            // Get diff for this file
+            // Get diff for this file (cross-platform, no pipe to head)
             let diff = '';
             try {
-              diff = execSync(
-                `git show ${hash} -- "${filePath}" | head -100`,
+              const fullDiff = execSync(
+                `git show ${hash} -- "${filePath}"`,
                 { cwd: this.projectPath, encoding: 'utf-8', maxBuffer: 1024 * 1024 }
-              ).slice(0, 2000);
+              );
+              // Limit to first 100 lines and 2000 chars
+              diff = fullDiff.split('\n').slice(0, 100).join('\n').slice(0, 2000);
             } catch {
               // Ignore diff errors
             }

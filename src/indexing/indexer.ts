@@ -90,7 +90,7 @@ export class Indexer extends EventEmitter {
     }
   }
 
-  async indexFile(absolutePath: string): Promise<void> {
+  async indexFile(absolutePath: string): Promise<boolean> {
     try {
       const content = readFileSync(absolutePath, 'utf-8');
       const stats = statSync(absolutePath);
@@ -101,7 +101,7 @@ export class Indexer extends EventEmitter {
 
       // Skip if content hasn't changed
       if (existingFile && existingFile.contentHash === contentHash) {
-        return;
+        return false; // Not indexed, skipped
       }
 
       const language = detectLanguage(absolutePath);
@@ -156,9 +156,11 @@ export class Indexer extends EventEmitter {
       }
 
       this.emit('fileIndexed', relativePath);
+      return true; // Actually indexed
     } catch (error) {
       console.error(`Error indexing ${absolutePath}:`, error);
       this.emit('indexError', { path: absolutePath, error });
+      return false;
     }
   }
 
@@ -197,28 +199,28 @@ export class Indexer extends EventEmitter {
       // Deduplicate
       const uniqueFiles = [...new Set(files)];
 
-      const progress: IndexingProgress = {
-        total: uniqueFiles.length,
-        indexed: 0
-      };
+      let checked = 0;
+      let indexed = 0;
+      const total = uniqueFiles.length;
 
-      this.emit('progress', progress);
-
-      // Index files
+      // Index files (only shows progress for actually indexed files)
       for (const file of uniqueFiles) {
         try {
-          progress.current = relative(this.config.projectPath, file);
-          await this.indexFile(file);
-          progress.indexed++;
-          this.emit('progress', { ...progress });
+          const wasIndexed = await this.indexFile(file);
+          checked++;
+          if (wasIndexed) {
+            indexed++;
+            this.emit('progress', { total, indexed, current: relative(this.config.projectPath, file) });
+          }
         } catch (error) {
           console.error(`Error indexing ${file}:`, error);
         }
       }
 
       this.emit('indexingComplete', {
-        total: progress.total,
-        indexed: progress.indexed
+        total: checked,
+        indexed,
+        skipped: checked - indexed
       });
     } finally {
       this.isIndexing = false;
