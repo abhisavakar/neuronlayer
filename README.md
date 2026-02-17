@@ -4,6 +4,8 @@
 
 An MCP server that helps AI assistants remember your decisions, understand your codebase, and not repeat past mistakes.
 
+Works with **Claude Code**, **OpenCode**, **Claude Desktop**, and any MCP-compatible coding agent.
+
 ---
 
 ## The Problem
@@ -50,7 +52,9 @@ npm install
 npm run build
 ```
 
-Add to Claude Desktop (`claude_desktop_config.json`):
+### Claude Code / OpenCode
+
+Add to your MCP config (`~/.claude/claude_desktop_config.json` or similar):
 
 ```json
 {
@@ -61,6 +65,13 @@ Add to Claude Desktop (`claude_desktop_config.json`):
     }
   }
 }
+```
+
+### Any MCP-Compatible Agent
+
+MemoryLayer is a standard MCP server. Point your agent to:
+```
+node /path/to/memorylayer/dist/index.js /path/to/your/project
 ```
 
 ---
