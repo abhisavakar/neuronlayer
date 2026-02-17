@@ -39,3 +39,4 @@ coverage/
 # Benchmark output
 benchmark-results/
 test-projects/
+benchmark-test-projects/

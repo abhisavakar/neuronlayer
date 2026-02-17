@@ -137,6 +137,7 @@ All Phase 1 tasks completed (location differs from plan - implemented in `src/ag
 | System prompts | `src/agent/prompts/system.ts` | ✅ |
 
 **LLM Providers Implemented:**
+- ✅ Azure OpenAI (Kimi-K2.5 - **default**)
 - ✅ Anthropic (Claude)
 - ✅ OpenRouter (200+ models)
 - ✅ OpenAI (GPT-4o, o1)
@@ -221,7 +222,8 @@ interface ExecutorConfig {
 ```typescript
 interface MemcodeConfig {
   defaultModel: string;
-  providers: { anthropic?, openrouter?, openai?, local? };
+  defaultProvider: string;  // 'openai' | 'anthropic' | 'openrouter' | 'local'
+  providers: { anthropic?, openrouter?, openai?, azure?, local? };
   agent: { maxTokensPerTurn, maxTurns, autoContext, streamResponses };
   ui: { showCosts, showTokens, colorOutput, showDiffs, diffContextLines, diffMaxLines };
   keybinds: { submit, newline, exit, clear, help };
@@ -235,7 +237,7 @@ interface MemcodeConfig {
 │  memcode — AI coding assistant powered by MemoryLayer  │
 └─────────────────────────────────────────────────────────┘
 ┌──────────────────────────────────────────────────────────────┐
-│ ⬡ ProjectName  │  ◈ model-name  │  ⚡ 58 tools
+│ ⬡ ProjectName  │  ◈ model-name  │  ⚡ 62 tools
 └──────────────────────────────────────────────────────────────┘
 
 ┌─ MODIFY src/example.ts
@@ -284,14 +286,14 @@ src/core/ai/
 
 ## Tools Summary
 
-**Total Tools:** 58 tools (47 MCP + 11 builtin)
+**Total Tools:** 62 tools (51 MCP + 11 builtin)
 
-### MCP Tools (47) - `src/server/tools.ts`
+### MCP Tools (51) - `src/server/tools.ts`
 
 | Category | Count | Tools |
 |----------|-------|-------|
 | Core Context | 11 | get_context, search_codebase, record_decision, get_file_context, get_project_summary, get_symbol, get_dependencies, get_file_summary, get_predicted_files, get_learning_stats, mark_context_useful |
-| Multi-Project | 6 | list_projects, switch_project, search_all_projects, record_decision_with_author, update_decision_status, export_decisions_to_adr, discover_projects |
+| Multi-Project | 7 | list_projects, switch_project, search_all_projects, record_decision_with_author, update_decision_status, export_decisions_to_adr, discover_projects |
 | Feature Context | 4 | get_active_context, set_feature_context, list_recent_contexts, switch_feature_context |
 | Living Docs | 7 | generate_docs, get_architecture, get_component_doc, get_changelog, validate_docs, what_happened, find_undocumented |
 | Context Rot | 4 | get_context_health, trigger_compaction, mark_critical, get_critical_context |
@@ -385,8 +387,8 @@ npm run build
 # MCP server works
 npx memorylayer --project .
 
-# memcode agent starts with all tools (47 MCP + 11 builtin)
-node dist/agent/index.js --project .
+# memcode agent starts with all tools (51 MCP + 11 builtin)
+node dist/agent.js --project .
 ```
 
 ---
