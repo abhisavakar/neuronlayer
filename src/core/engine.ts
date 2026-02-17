@@ -334,6 +334,14 @@ export class MemoryLayerEngine {
     return this.decisionTracker.getRecentDecisions(limit);
   }
 
+  /**
+   * Search decisions in current project by query
+   */
+  async searchDecisions(query: string, limit: number = 5): Promise<Decision[]> {
+    const embedding = await this.indexer.getEmbeddingGenerator().embed(query);
+    return this.tier2.searchDecisions(embedding, limit);
+  }
+
   async getFileContext(filePath: string): Promise<{ content: string; language: string; lines: number } | null> {
     const absolutePath = join(this.config.projectPath, filePath);
 
