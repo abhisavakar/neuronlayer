@@ -72,17 +72,17 @@ export class SourceTracker {
         const similarity = Math.round(result.similarity * 100);
 
         if (similarity >= 30) { // Only include if at least 30% similar
-          const file = this.tier2.getFile(result.path);
+          const file = this.tier2.getFile(result.file);
           const symbols = file ? this.tier2.getSymbolsByFile(file.id) : [];
-          const dependents = this.tier2.getFileDependents(result.path);
+          const dependents = this.tier2.getFileDependents(result.file);
 
           matches.push({
-            file: result.path,
+            file: result.file,
             similarity,
             snippet: result.preview,
             lastModified: file ? new Date(file.lastModified) : undefined,
             usageCount: dependents.length + 1,
-            function: symbols.length > 0 ? symbols[0].name : undefined
+            function: symbols.length > 0 ? symbols[0]?.name : undefined
           });
         }
       }
@@ -105,8 +105,9 @@ export class SourceTracker {
       const decisions = this.tier2.searchDecisions(embedding, 5);
 
       for (const decision of decisions) {
-        // Calculate relevance based on similarity
-        const relevance = Math.round(decision.similarity * 100);
+        // Decisions from searchDecisions are already sorted by relevance
+        // Use a fixed relevance since Decision type doesn't carry similarity
+        const relevance = 70; // Default relevance for matched decisions
 
         if (relevance >= 40) { // Only include if at least 40% relevant
           matches.push({
