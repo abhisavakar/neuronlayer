@@ -55,6 +55,8 @@ export class MemoryLayerEngine {
   private codeVerifier: CodeVerifier;
   private backgroundInterval: NodeJS.Timeout | null = null;
   private initialized = false;
+  private initializationStatus: 'pending' | 'indexing' | 'ready' | 'error' = 'pending';
+  private indexingProgress: { indexed: number; total: number } = { indexed: 0, total: 0 };
 
   // Background intelligence settings
   private readonly BACKGROUND_REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
@@ -173,9 +175,13 @@ export class MemoryLayerEngine {
   private setupIndexerEvents(): void {
     this.indexer.on('indexingStarted', () => {
       // Silent start - only show if files need indexing
+      this.indexingProgress = { indexed: 0, total: 0 };
     });
 
     this.indexer.on('progress', (progress) => {
+      // Track progress for status visibility
+      this.indexingProgress = { indexed: progress.indexed, total: progress.total || 0 };
+
       // Only show progress when actually indexing files
       if (progress.indexed === 1) {
         console.error('Indexing new/changed files...');
@@ -186,6 +192,9 @@ export class MemoryLayerEngine {
     });
 
     this.indexer.on('indexingComplete', (stats: { total: number; indexed: number; skipped?: number }) => {
+      // Update final progress
+      this.indexingProgress = { indexed: stats.indexed, total: stats.total };
+
       if (stats.indexed > 0) {
         console.error(`Indexing complete: ${stats.indexed} files indexed`);
       } else {
@@ -212,35 +221,53 @@ export class MemoryLayerEngine {
 
     console.error(`Initializing MemoryLayer for: ${this.config.projectPath}`);
 
-    // Perform initial indexing
-    await this.indexer.performInitialIndex();
+    try {
+      // Perform initial indexing
+      this.initializationStatus = 'indexing';
+      await this.indexer.performInitialIndex();
 
-    // Start watching for changes
-    this.indexer.startWatching();
+      // Start watching for changes
+      this.indexer.startWatching();
 
-    // Sync change intelligence from git
-    const synced = this.changeIntelligence.initialize();
-    if (synced > 0) {
-      console.error(`Synced ${synced} changes from git history`);
+      // Sync change intelligence from git
+      const synced = this.changeIntelligence.initialize();
+      if (synced > 0) {
+        console.error(`Synced ${synced} changes from git history`);
+      }
+
+      // Initialize architecture enforcement (learn patterns from codebase)
+      const archResult = this.architectureEnforcement.initialize();
+      if (archResult.patternsLearned > 0 || archResult.examplesAdded > 0) {
+        console.error(`Architecture enforcement: ${archResult.patternsLearned} patterns learned, ${archResult.examplesAdded} examples added`);
+      }
+
+      // Initialize test awareness (index tests)
+      const testResult = this.testAwareness.initialize();
+      if (testResult.testsIndexed > 0) {
+        console.error(`Test awareness: ${testResult.testsIndexed} tests indexed (${testResult.framework})`);
+      }
+
+      // Start background intelligence loop
+      this.startBackgroundIntelligence();
+
+      this.initialized = true;
+      this.initializationStatus = 'ready';
+      console.error('MemoryLayer initialized');
+    } catch (error) {
+      this.initializationStatus = 'error';
+      throw error;
     }
+  }
 
-    // Initialize architecture enforcement (learn patterns from codebase)
-    const archResult = this.architectureEnforcement.initialize();
-    if (archResult.patternsLearned > 0 || archResult.examplesAdded > 0) {
-      console.error(`Architecture enforcement: ${archResult.patternsLearned} patterns learned, ${archResult.examplesAdded} examples added`);
-    }
-
-    // Initialize test awareness (index tests)
-    const testResult = this.testAwareness.initialize();
-    if (testResult.testsIndexed > 0) {
-      console.error(`Test awareness: ${testResult.testsIndexed} tests indexed (${testResult.framework})`);
-    }
-
-    // Start background intelligence loop
-    this.startBackgroundIntelligence();
-
-    this.initialized = true;
-    console.error('MemoryLayer initialized');
+  /**
+   * Get the current engine status for visibility
+   */
+  getEngineStatus(): { status: string; ready: boolean; indexing: { indexed: number; total: number } } {
+    return {
+      status: this.initializationStatus,
+      ready: this.initialized,
+      indexing: this.indexingProgress
+    };
   }
 
   /**

@@ -75,6 +75,9 @@ async function handleProjectSummary(
 
   const summary = engine.getProjectSummary();
 
+  // Get engine status for visibility
+  const engineStatus = engine.getEngineStatus();
+
   // Also get learning stats for a fuller picture
   sourcesUsed.push('get_learning_stats');
   const learningStats = engine.getLearningStats();
@@ -85,6 +88,11 @@ async function handleProjectSummary(
 
   const response: MemoryStatusResponse = {
     sources_used: sourcesUsed,
+    engine: {
+      status: engineStatus.status,
+      ready: engineStatus.ready,
+      indexing: engineStatus.indexing,
+    },
     project: {
       name: summary.name,
       description: summary.description,

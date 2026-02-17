@@ -1,19 +1,19 @@
-import { homedir } from 'os';
-import { join, resolve, basename } from 'path';
-import { createHash } from 'crypto';
+import { join, resolve } from 'path';
 import type { MemoryLayerConfig } from '../types/index.js';
 
 export function getDefaultConfig(projectPath: string): MemoryLayerConfig {
   const normalizedPath = resolve(projectPath);
-  const projectHash = createHash('md5').update(normalizedPath).digest('hex').slice(0, 12);
-  const projectName = basename(normalizedPath);
 
   return {
     projectPath: normalizedPath,
-    dataDir: join(homedir(), '.memorylayer', 'projects', `${projectName}-${projectHash}`),
+    // Store in project directory (standard practice like .git/, .vscode/)
+    dataDir: join(normalizedPath, '.memorylayer'),
     maxTokens: 6000,
     embeddingModel: 'Xenova/all-MiniLM-L6-v2', // Fallback model, faster and smaller
     watchIgnore: [
+      // ===== MemoryLayer =====
+      '**/.memorylayer/**',
+
       // ===== Version Control =====
       '**/.git/**',
       '**/.svn/**',
