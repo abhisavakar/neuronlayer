@@ -124,14 +124,17 @@ export class MCPServer {
   }
 
   async start(): Promise<void> {
-    // Initialize the engine (performs indexing)
-    await this.engine.initialize();
-
-    // Connect to stdio transport
+    // Connect to stdio transport FIRST (so we can respond to MCP immediately)
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
 
     console.error('MemoryLayer MCP server started');
+
+    // Initialize the engine in the background (indexing, etc.)
+    // This allows MCP to respond while indexing happens
+    this.engine.initialize().catch(err => {
+      console.error('Engine initialization error:', err);
+    });
 
     // Handle shutdown
     process.on('SIGINT', () => {
