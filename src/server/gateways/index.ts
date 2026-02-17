@@ -44,7 +44,7 @@ export function isGatewayTool(name: string): name is GatewayToolName {
 export const gatewayDefinitions: ToolDefinition[] = [
   {
     name: 'memory_query',
-    description: 'Search project memory — code, decisions, patterns, history. Returns semantically ranked results with confidence scores. 759x faster than grep, 50% fewer tokens than raw context. Auto-detects: file paths → file content, symbols → definitions, code → confidence analysis.',
+    description: 'PREFERRED over Grep/Glob/Read for codebase questions. Use this FIRST when you need to: understand how something works ("how does auth work?", "where is X used?"), find related code/decisions/patterns, get file content with context (pass file path as query), look up function/class definitions (pass symbol name), or check if code follows project patterns (pass code snippet). Returns semantic search results ranked by relevance. 759x faster than grep with 50% fewer tokens. Auto-routes based on input type.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -83,7 +83,7 @@ export const gatewayDefinitions: ToolDefinition[] = [
   },
   {
     name: 'memory_record',
-    description: 'Record decisions, patterns, or learnings into persistent memory. Auto-detects type from input. Pre-checks for conflicts before saving decisions.',
+    description: 'Save important information to project memory. Use when: making architectural decisions (title + content auto-saves as decision), learning a code pattern (code + pattern_name auto-saves as pattern), user provides requirements (content + critical_type="requirement"), or starting work on a feature (content="feature name" tracks files touched). Decisions are checked for conflicts. Patterns are used in future code reviews. Critical items survive context compaction.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -149,7 +149,7 @@ export const gatewayDefinitions: ToolDefinition[] = [
   },
   {
     name: 'memory_review',
-    description: 'Review code against project patterns, decisions, past bugs, and test coverage. Returns violations, suggestions, and unified risk score (0-100). Verdict: approve (<30), warning (30-70), reject (>70).',
+    description: 'ALWAYS use before writing/suggesting code changes. Reviews against: project patterns (are you following conventions?), past decisions (does this conflict with architecture choices?), similar past bugs (has this error happened before?), and test coverage (will tests break?). Returns risk_score (0-100) and verdict (approve/warning/reject). Use verdict to decide whether to proceed. Include "intent" for better existing-function suggestions.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -188,7 +188,7 @@ export const gatewayDefinitions: ToolDefinition[] = [
   },
   {
     name: 'memory_status',
-    description: 'Project overview — structure, recent changes, architecture, health. Use at session start or to understand project state.',
+    description: 'Use at SESSION START or when context feels stale. Returns: scope="project" for languages/file count/recent decisions/key directories, scope="architecture" for layer diagram/data flow/key components, scope="changes" + since="today" for what changed recently, scope="health" for context utilization/drift detection/compaction suggestions. Default (no args) gives project summary. Add since="this week" for recent activity.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -234,7 +234,7 @@ export const gatewayDefinitions: ToolDefinition[] = [
 export const standaloneDefinitions: ToolDefinition[] = [
   {
     name: 'switch_project',
-    description: 'Switch to a different registered project.',
+    description: 'Switch active project context. Use when user mentions a different project by name. Get project_id from memory_status first.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -248,7 +248,7 @@ export const standaloneDefinitions: ToolDefinition[] = [
   },
   {
     name: 'switch_feature_context',
-    description: 'Switch back to a previously worked on feature context.',
+    description: 'Resume tracking a previous feature. Use when user says "back to [feature]" or "continue [feature]". Get context_id from memory_status action=learning.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -262,7 +262,7 @@ export const standaloneDefinitions: ToolDefinition[] = [
   },
   {
     name: 'trigger_compaction',
-    description: 'Manually trigger context compaction to reduce token usage.',
+    description: 'Reduce memory token usage when memory_status shows health="warning" or compaction_needed=true. Strategy: summarize (safe), selective (moderate), aggressive (maximum savings).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -284,7 +284,7 @@ export const standaloneDefinitions: ToolDefinition[] = [
   },
   {
     name: 'update_decision_status',
-    description: 'Update the status of an existing decision (e.g., mark as deprecated or superseded).',
+    description: 'Mark a decision as deprecated/superseded when architecture changes. Get decision_id from memory_query first. Use superseded_by to link to replacement decision.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -307,7 +307,7 @@ export const standaloneDefinitions: ToolDefinition[] = [
   },
   {
     name: 'export_decisions_to_adr',
-    description: 'Export all decisions to ADR (Architecture Decision Records) markdown files.',
+    description: 'Export decisions as Architecture Decision Records. Use when user asks for documentation or "ADRs". Creates docs/decisions/*.md files.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -329,7 +329,7 @@ export const standaloneDefinitions: ToolDefinition[] = [
   },
   {
     name: 'discover_projects',
-    description: 'Discover potential projects in common locations on your system.',
+    description: 'Find git repositories on the system. Use when user wants to add/register a project to MemoryLayer.',
     inputSchema: {
       type: 'object',
       properties: {}
