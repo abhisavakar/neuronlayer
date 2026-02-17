@@ -3,7 +3,7 @@
   "mcp": {
     "memorylayer": {
       "type": "local",
-      "command": ["cmd", "/c", "node", "C:\\Users\\abhis\\Desktop\\fullstackoverweekend\\MemoryLayer\\dist\\index.js", "--project", "C:\\Users\\abhis\\Desktop\\fullstackoverweekend\\MemoryLayer"],
+      "command": ["node", "C:\\Users\\abhis\\Desktop\\fullstackoverweekend\\MemoryLayer\\dist\\index.js", "--project", "C:\\Users\\abhis\\Desktop\\fullstackoverweekend\\MemoryLayer"],
       "enabled": true
     }
   }

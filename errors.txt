@@ -1,0 +1,26 @@
+﻿src/core/architecture/pattern-validator.ts(197,54): error TS18048: 'topMatch' is possibly 'undefined'.
+src/core/architecture/pattern-validator.ts(197,74): error TS18048: 'topMatch' is possibly 'undefined'.
+src/core/architecture/pattern-validator.ts(199,37): error TS18048: 'topMatch' is possibly 'undefined'.
+src/core/architecture/pattern-validator.ts(204,47): error TS18048: 'topMatch' is possibly 'undefined'.
+src/core/architecture/pattern-validator.ts(204,71): error TS18048: 'topMatch' is possibly 'undefined'.
+src/core/architecture/pattern-validator.ts(205,27): error TS18048: 'topMatch' is possibly 'undefined'.
+src/core/architecture/pattern-validator.ts(205,52): error TS18048: 'topMatch' is possibly 'undefined'.
+src/core/change-intelligence/bug-correlator.ts(177,52): error TS2532: Object is possibly 'undefined'.
+src/core/change-intelligence/bug-correlator.ts(178,51): error TS2532: Object is possibly 'undefined'.
+src/core/change-intelligence/bug-correlator.ts(388,11): error TS2532: Object is possibly 'undefined'.
+src/core/change-intelligence/bug-correlator.ts(389,37): error TS2532: Object is possibly 'undefined'.
+src/core/change-intelligence/change-intelligence.ts(205,20): error TS18048: 's' is possibly 'undefined'.
+src/core/change-intelligence/change-intelligence.ts(206,20): error TS18048: 's' is possibly 'undefined'.
+src/core/change-intelligence/change-intelligence.ts(208,39): error TS18048: 's' is possibly 'undefined'.
+src/core/change-intelligence/change-intelligence.ts(208,49): error TS18048: 's' is possibly 'undefined'.
+src/core/change-intelligence/change-intelligence.ts(209,32): error TS18048: 's' is possibly 'undefined'.
+src/core/change-intelligence/change-intelligence.ts(210,11): error TS18048: 's' is possibly 'undefined'.
+src/core/change-intelligence/change-intelligence.ts(211,26): error TS18048: 's' is possibly 'undefined'.
+src/core/change-intelligence/change-intelligence.ts(213,11): error TS18048: 's' is possibly 'undefined'.
+src/core/change-intelligence/change-intelligence.ts(214,44): error TS18048: 's' is possibly 'undefined'.
+src/core/change-intelligence/change-tracker.ts(53,36): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/core/change-intelligence/change-tracker.ts(90,61): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/core/change-intelligence/change-tracker.ts(91,65): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
