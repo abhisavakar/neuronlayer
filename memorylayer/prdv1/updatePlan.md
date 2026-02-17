@@ -524,3 +524,6 @@ Total Tools: **6 Gateways + 6 Standalone = 12 Tools**
 - `src/core/feature-context.ts` - Added resurrection logic
 - `src/core/learning.ts` - Added importance weighting
 - All gateway files - Enhanced with proactive features
+
+
+claude --resume 95917755-1eda-4f70-a49a-77923462e101
