@@ -270,6 +270,35 @@ Each project has isolated data:
 
 ---
 
+## Real-World Performance
+
+Benchmarked on Express.js (141 files, 21,487 lines of code):
+
+| Operation | WITHOUT MCP (grep) | WITH MCP (NeuronLayer) |
+|-----------|-------------------|------------------------|
+| Initial Setup | 0ms | ~28s (one-time indexing) |
+| Text Search | 56-60ms | ~10-50ms (cached) |
+| File Walk | 11ms | ~5ms (indexed) |
+
+**Honest Assessment:**
+- **grep wins** for simple text matching (56ms vs ~30ms)
+- **NeuronLayer wins** for semantic understanding and persistent memory
+- The ~28 second indexing is a one-time cost per session
+- After indexing, queries use cached embeddings
+
+**When NeuronLayer is Worth It:**
+- Long coding sessions (memory persists across context)
+- Complex queries ("how does auth work here?")
+- Architectural decisions (tracked & searchable)
+- Pattern consistency (learns your conventions)
+- Test awareness (knows what tests cover what)
+
+**When grep is Better:**
+- Quick one-off text searches
+- Small projects where indexing overhead isn't worth it
+
+---
+
 ## Privacy
 
 NeuronLayer is **100% local**:
