@@ -23,12 +23,4 @@ await build({
   banner: { js: '#!/usr/bin/env node' },
 });
 
-// Build memcode agent
-await build({
-  ...commonOptions,
-  entryPoints: ['src/agent/index.ts'],
-  outfile: 'dist/agent.js',
-  banner: { js: '#!/usr/bin/env node' },
-});
-
-console.log('Build complete! (memorylayer + memcode)');
+console.log('Build complete!');
