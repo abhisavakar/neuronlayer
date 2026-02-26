@@ -39,3 +39,6 @@ coverage/
 # Benchmark output
 benchmark-results/
 test-projects/
+
+# MemoryLayer data (generated at runtime)
+.memorylayer/
