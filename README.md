@@ -1,7 +1,8 @@
-# MemoryLayer
+# NeuronLayer
 
 **Persistent memory layer for AI coding assistants. Your codebase documents itself.**
 
+[![npm version](https://img.shields.io/npm/v/neuronlayer.svg)](https://www.npmjs.com/package/neuronlayer)
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933.svg)](https://nodejs.org/)
 [![MCP](https://img.shields.io/badge/MCP-Compatible-blue.svg)](https://modelcontextprotocol.io/)
@@ -23,7 +24,7 @@ AI coding assistants are powerful but forgetful:
 
 ## The Solution
 
-MemoryLayer gives AI assistants persistent, intelligent memory:
+NeuronLayer gives AI assistants persistent, intelligent memory:
 
 - **Never forget context** - Decisions, patterns, and history persist across sessions
 - **Self-documenting codebase** - Architecture docs generate automatically
@@ -33,9 +34,105 @@ MemoryLayer gives AI assistants persistent, intelligent memory:
 
 ---
 
+## Compatibility
+
+| Tool | Supported | Auto-Configure |
+|------|-----------|----------------|
+| Claude Desktop | Yes | `neuronlayer init` |
+| Claude Code (CLI) | Yes | `neuronlayer init` |
+| OpenCode | Yes | `neuronlayer init` |
+| VS Code + Continue | Yes | Manual config |
+| Cursor | Not yet | No MCP support |
+| Any MCP Client | Yes | Manual config |
+
+---
+
+## Quick Start
+
+### Installation
+
+```bash
+npm install -g neuronlayer
+```
+
+### One-Command Setup
+
+```bash
+cd your-project
+neuronlayer init
+```
+
+That's it! This automatically:
+1. Registers your project
+2. Configures Claude Desktop
+3. Configures OpenCode
+4. Configures Claude Code
+
+Just restart your AI tool and NeuronLayer is active.
+
+### Output
+
+```
+NeuronLayer initialized!
+
+Project: my-project
+Path: /home/user/my-project
+Data: ~/.memorylayer/projects/my-project-abc123
+
+Configured MCP Clients:
+  ✓ Claude Desktop: ~/.config/claude/claude_desktop_config.json
+  ✓ OpenCode: ~/.opencode/config.json
+  ✓ Claude Code: ~/.claude.json
+
+Restart your AI tools to activate.
+```
+
+---
+
+## Manual Configuration
+
+If you prefer manual setup or use a different MCP client:
+
+### Claude Desktop
+
+Add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "neuronlayer": {
+      "command": "npx",
+      "args": ["-y", "neuronlayer", "--project", "/path/to/your/project"]
+    }
+  }
+}
+```
+
+Config locations:
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Linux**: `~/.config/claude/claude_desktop_config.json`
+
+### OpenCode
+
+Add to `~/.opencode/config.json`:
+
+```json
+{
+  "mcpServers": {
+    "neuronlayer": {
+      "command": "npx",
+      "args": ["-y", "neuronlayer", "--project", "/path/to/your/project"]
+    }
+  }
+}
+```
+
+---
+
 ## Features
 
-### Core Features (Free)
+### Core Features
 
 | Feature | Description |
 |---------|-------------|
@@ -57,48 +154,16 @@ MemoryLayer gives AI assistants persistent, intelligent memory:
 
 ---
 
-## Quick Start
-
-### Installation
-
-```bash
-npm install -g neuronlayer
-```
-
-### Usage with Claude Desktop
-
-Add to your Claude Desktop config (`claude_desktop_config.json`):
-
-```json
-{
-  "mcpServers": {
-    "memorylayer": {
-      "command": "npx",
-      "args": ["-y", "neuronlayer", "--project", "/path/to/your/project"]
-    }
-  }
-}
-```
-
-### Usage with Any MCP Client
-
-```bash
-# Start the MCP server
-memorylayer --project /path/to/your/project
-```
-
----
-
 ## How It Works
 
 ```
 +-------------------------------------------------------------+
-|                      MEMORYLAYER                             |
+|                      NEURONLAYER                             |
 +-------------------------------------------------------------+
 |                                                              |
 |  +--------------+    +--------------+    +--------------+   |
 |  |   AI Tool    |--->|  MCP Server  |--->|   Memory     |   |
-|  | (Claude etc) |    |   (stdio)    |    |   Engine     |   |
+|  | Claude/Open  |    |   (stdio)    |    |   Engine     |   |
 |  +--------------+    +--------------+    +--------------+   |
 |                                                    |         |
 |                            +--------------------+--+----+   |
@@ -121,7 +186,7 @@ memorylayer --project /path/to/your/project
 
 ## MCP Tools
 
-MemoryLayer exposes 25+ MCP tools:
+NeuronLayer exposes 25+ MCP tools:
 
 ### Query & Search
 - `memory_query` - Semantic search across codebase
@@ -152,54 +217,64 @@ MemoryLayer exposes 25+ MCP tools:
 
 ---
 
-## Configuration
-
-MemoryLayer stores data in:
-- **Windows**: `%APPDATA%\.memorylayer\<project-hash>\`
-- **macOS/Linux**: `~/.memorylayer/<project-hash>/`
-
-### CLI Commands
+## CLI Commands
 
 ```bash
-# List all indexed projects
-memorylayer projects
+# Quick setup (auto-configures AI tools)
+neuronlayer init
 
-# Export decisions as ADRs
-memorylayer export --format adr --output ./docs/decisions
+# Initialize specific project
+neuronlayer init /path/to/project
+
+# List all registered projects
+neuronlayer projects list
+
+# Add a new project
+neuronlayer projects add /path/to/my-project
+
+# Switch active project
+neuronlayer projects switch <id>
+
+# Export decisions to ADR files
+neuronlayer export --format madr
+
+# Discover projects in common locations
+neuronlayer projects discover
 
 # Show help
-memorylayer help
+neuronlayer help
 ```
 
 ---
 
-## Architecture
+## Data Storage
+
+NeuronLayer stores project data separately for each project:
 
 ```
-src/
-├── core/                    # Business logic
-│   ├── engine.ts            # Main orchestrator
-│   ├── living-docs/         # Auto-documentation
-│   ├── context-rot/         # Context health management
-│   ├── confidence/          # Trust scoring
-│   ├── change-intelligence/ # What changed & why
-│   ├── architecture/        # Pattern enforcement
-│   └── test-awareness/      # Test-respecting suggestions
-├── server/
-│   ├── mcp.ts               # MCP protocol handler
-│   ├── tools.ts             # Tool definitions
-│   └── gateways/            # Unified tool APIs
-├── storage/
-│   ├── tier1.ts             # Hot cache
-│   ├── tier2.ts             # SQLite storage
-│   └── tier3.ts             # Vector embeddings
-├── indexing/
-│   ├── indexer.ts           # File indexing
-│   ├── ast.ts               # AST parsing
-│   ├── embeddings.ts        # Embedding generation
-│   └── watcher.ts           # File watching
-└── types/                   # TypeScript definitions
+~/.memorylayer/
+├── projects/
+│   ├── project-a-abc123/
+│   │   ├── memorylayer.db    # SQLite database
+│   │   └── embeddings/       # Vector index
+│   └── project-b-def456/
+│       ├── memorylayer.db
+│       └── embeddings/
+└── registry.json             # Project registry
 ```
+
+Each project is isolated - no data mixing between projects.
+
+---
+
+## Privacy
+
+NeuronLayer is **100% local by default**:
+
+- All data stored on your machine
+- No cloud services required
+- No telemetry or tracking
+- Works completely offline
 
 ---
 
@@ -214,8 +289,8 @@ src/
 
 ```bash
 # Clone the repository
-git clone https://github.com/anthropics/memorylayer.git
-cd memorylayer
+git clone https://github.com/abhisavakar/neuronlayer.git
+cd neuronlayer
 
 # Install dependencies
 npm install
@@ -230,29 +305,6 @@ npm test
 npm run typecheck
 ```
 
-### Scripts
-
-| Script | Description |
-|--------|-------------|
-| `npm run build` | Build the project |
-| `npm run dev` | Development mode with watch |
-| `npm run test` | Run tests |
-| `npm run typecheck` | Type check without building |
-| `npm run benchmark` | Run performance benchmarks |
-
----
-
-## Privacy
-
-MemoryLayer is **100% local by default**:
-
-- All data stored on your machine
-- No cloud services required
-- No telemetry or tracking
-- Works offline
-
-Optional cloud features (coming soon) will use your own infrastructure.
-
 ---
 
 ## Contributing
@@ -263,9 +315,9 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 - Additional language support (Python, Go, Rust AST)
 - IDE extensions (VS Code, JetBrains)
+- Cursor integration (when they add MCP support)
 - Documentation improvements
 - Performance optimizations
-- Bug fixes and test coverage
 
 ---
 
@@ -278,15 +330,23 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - [x] Change Intelligence
 - [x] Architecture Enforcement
 - [x] Test-Aware Suggestions
+- [x] Auto-setup for Claude Desktop
+- [x] Auto-setup for OpenCode
 - [ ] VS Code extension
+- [ ] Cursor support (pending MCP)
 - [ ] Team features (shared memory)
-- [ ] Enterprise deployment (AWS Bedrock)
 
 ---
 
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
+
+---
+
+## Author
+
+**Abhishek Arun Savakar** - [savakar.com](https://savakar.com)
 
 ---
 
