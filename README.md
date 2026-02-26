@@ -13,24 +13,19 @@
 
 AI coding assistants are powerful but forgetful:
 
-| Problem | Stat |
-|---------|------|
-| Productivity paradox | 19% SLOWER with AI |
-| "Almost right" frustration | 66% of developers |
-| Trust issues | Only 29% trust AI code |
-| Context collapse | AI forgets mid-session |
-| Technical debt | 1.64x higher errors |
-| Code duplication | 4x more cloning |
+- Context collapse - AI forgets mid-session
+- No persistent memory - every session starts fresh
+- Code duplication - AI doesn't know what already exists
+- Test breakage - AI suggestions break existing tests
 
 ## The Solution
 
 NeuronLayer gives AI assistants persistent, intelligent memory:
 
-- **Never forget context** - Decisions, patterns, and history persist across sessions
-- **Self-documenting codebase** - Architecture docs generate automatically
-- **Context rot prevention** - AI stays sharp even in long sessions
-- **Pattern enforcement** - Stops code duplication before it happens
-- **Test-aware suggestions** - AI respects your tests
+- **Decisions persist** - Architectural decisions survive across sessions
+- **Patterns learned** - AI knows your coding conventions
+- **Context preserved** - Smart compaction prevents forgetting
+- **Tests respected** - AI knows what tests exist
 
 ---
 
@@ -70,28 +65,125 @@ That's it! This automatically:
 
 Just restart your AI tool and NeuronLayer is active.
 
-### Output
+---
+
+## MCP Tools
+
+NeuronLayer exposes **12 MCP tools** organized into 6 gateway tools and 6 standalone tools.
+
+### Gateway Tools (Smart Routing)
+
+These are the main tools. Each routes to multiple internal capabilities based on input:
+
+| Tool | Purpose |
+|------|---------|
+| `memory_query` | Search codebase, find code, look up symbols, get file context |
+| `memory_record` | Save decisions, learn patterns, record feedback, track features |
+| `memory_review` | Pre-code review: check patterns, conflicts, tests, get suggestions |
+| `memory_status` | Project overview, architecture, recent changes, health check |
+| `memory_ghost` | Proactive intelligence: conflicts, "you solved this before", session resume |
+| `memory_verify` | Pre-commit check: validate imports, security, dependencies |
+
+### Standalone Tools
+
+| Tool | Purpose |
+|------|---------|
+| `switch_project` | Switch between registered projects |
+| `switch_feature_context` | Resume work on a previous feature |
+| `trigger_compaction` | Reduce memory when context is full |
+| `update_decision_status` | Mark decisions as deprecated/superseded |
+| `export_decisions_to_adr` | Export decisions as ADR markdown files |
+| `discover_projects` | Find git repos on the system |
+
+---
+
+## Features
+
+### What's Implemented
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| **Semantic Search** | Working | Find code by meaning using embeddings |
+| **Decision Recording** | Working | Log architectural decisions with context |
+| **Pattern Library** | Working | Learn and validate coding patterns |
+| **File Indexing** | Working | AST-based symbol extraction |
+| **Context Compaction** | Working | Smart summarization when context fills |
+| **Test Indexing** | Working | Index tests, predict failures |
+| **Git Integration** | Working | Track changes, correlate with decisions |
+| **Multi-Project** | Working | Switch between projects |
+
+### Modules
 
 ```
-NeuronLayer initialized!
+src/core/
+├── living-docs/         # Architecture & changelog generation
+├── context-rot/         # Context health & compaction
+├── confidence/          # Source tracking & conflict detection
+├── change-intelligence/ # Git tracking & fix suggestions
+├── architecture/        # Pattern library & validation
+└── test-awareness/      # Test indexing & failure prediction
+```
 
-Project: my-project
-Path: /home/user/my-project
-Data: ~/.memorylayer/projects/my-project-abc123
+---
 
-Configured MCP Clients:
-  ✓ Claude Desktop: ~/.config/claude/claude_desktop_config.json
-  ✓ OpenCode: ~/.opencode/config.json
-  ✓ Claude Code: ~/.claude.json
+## How It Works
 
-Restart your AI tools to activate.
+```
++-------------------------------------------------------------+
+|                      NEURONLAYER                             |
++-------------------------------------------------------------+
+|                                                              |
+|  +--------------+    +--------------+    +--------------+   |
+|  |   AI Tool    |--->|  MCP Server  |--->|   Memory     |   |
+|  | Claude/Open  |    |   (stdio)    |    |   Engine     |   |
+|  +--------------+    +--------------+    +--------------+   |
+|                                                    |         |
+|                            +--------------------+--+----+   |
+|                            |                    v       |   |
+|  +--------------+    +-----+----+    +------------------+|  |
+|  |  Your Code   |--->| Indexer  |--->|  SQLite + Vec DB ||  |
+|  |  (watched)   |    | (AST/Git)|    |  (embeddings)    ||  |
+|  +--------------+    +----------+    +------------------+|  |
+|                                                          |  |
++-------------------------------------------------------------+
+```
+
+### Memory Tiers
+
+1. **Tier 1** - Hot cache for active files (instant)
+2. **Tier 2** - SQLite for decisions, patterns, history (fast)
+3. **Tier 3** - Vector embeddings for semantic search (smart)
+
+---
+
+## CLI Commands
+
+```bash
+# Quick setup (auto-configures AI tools)
+neuronlayer init
+
+# Initialize specific project
+neuronlayer init /path/to/project
+
+# List all registered projects
+neuronlayer projects list
+
+# Add a new project
+neuronlayer projects add /path/to/my-project
+
+# Switch active project
+neuronlayer projects switch <id>
+
+# Export decisions to ADR files
+neuronlayer export --format madr
+
+# Show help
+neuronlayer help
 ```
 
 ---
 
 ## Manual Configuration
-
-If you prefer manual setup or use a different MCP client:
 
 ### Claude Desktop
 
@@ -130,126 +222,9 @@ Add to `~/.opencode/config.json`:
 
 ---
 
-## Features
-
-### Core Features
-
-| Feature | Description |
-|---------|-------------|
-| **Semantic Search** | Find code by meaning, not just keywords |
-| **Decision Recording** | Log architectural decisions with context |
-| **Pattern Library** | Learn and enforce coding patterns |
-| **File Indexing** | AST-based symbol extraction |
-
-### Advanced Features
-
-| Feature | Description |
-|---------|-------------|
-| **Living Documentation** | Auto-generated architecture docs |
-| **Context Rot Prevention** | Smart compaction keeps AI focused |
-| **Confidence Scoring** | Know when AI is guessing vs confident |
-| **Change Intelligence** | "What changed?" and "Why did it break?" |
-| **Architecture Enforcement** | Suggest existing functions, prevent duplication |
-| **Test-Aware Suggestions** | Predict test failures before they happen |
-
----
-
-## How It Works
-
-```
-+-------------------------------------------------------------+
-|                      NEURONLAYER                             |
-+-------------------------------------------------------------+
-|                                                              |
-|  +--------------+    +--------------+    +--------------+   |
-|  |   AI Tool    |--->|  MCP Server  |--->|   Memory     |   |
-|  | Claude/Open  |    |   (stdio)    |    |   Engine     |   |
-|  +--------------+    +--------------+    +--------------+   |
-|                                                    |         |
-|                            +--------------------+--+----+   |
-|                            |                    v       |   |
-|  +--------------+    +-----+----+    +------------------+|  |
-|  |  Your Code   |--->| Indexer  |--->|  SQLite + Vec DB ||  |
-|  |  (watched)   |    | (AST/Git)|    |  (embeddings)    ||  |
-|  +--------------+    +----------+    +------------------+|  |
-|                                                          |  |
-+-------------------------------------------------------------+
-```
-
-### Memory Tiers
-
-1. **Tier 1** - Hot cache for active files (instant)
-2. **Tier 2** - SQLite for decisions, patterns, history (fast)
-3. **Tier 3** - Vector embeddings for semantic search (smart)
-
----
-
-## MCP Tools
-
-NeuronLayer exposes 25+ MCP tools:
-
-### Query & Search
-- `memory_query` - Semantic search across codebase
-- `memory_status` - Project overview and health
-
-### Recording
-- `memory_record` - Save decisions, patterns, feedback
-- `memory_review` - Pre-flight check before code changes
-- `memory_verify` - Validate AI-generated code
-
-### Ghost Mode (AI-Proactive)
-- `memory_ghost` - Conflicts, deja vu, session resurrection
-
-### Living Documentation
-- `get_architecture` - Project structure overview
-- `get_changelog` - Recent changes with context
-- `what_happened` - "What did we do yesterday?"
-
-### Architecture Enforcement
-- `validate_pattern` - Check code against patterns
-- `suggest_existing` - Find reusable functions
-- `learn_pattern` - Teach new patterns
-
-### Test Awareness
-- `get_related_tests` - Tests for a file/function
-- `check_tests` - Predict test failures
-- `suggest_test_update` - Test update suggestions
-
----
-
-## CLI Commands
-
-```bash
-# Quick setup (auto-configures AI tools)
-neuronlayer init
-
-# Initialize specific project
-neuronlayer init /path/to/project
-
-# List all registered projects
-neuronlayer projects list
-
-# Add a new project
-neuronlayer projects add /path/to/my-project
-
-# Switch active project
-neuronlayer projects switch <id>
-
-# Export decisions to ADR files
-neuronlayer export --format madr
-
-# Discover projects in common locations
-neuronlayer projects discover
-
-# Show help
-neuronlayer help
-```
-
----
-
 ## Data Storage
 
-NeuronLayer stores project data separately for each project:
+Each project has isolated data:
 
 ```
 ~/.memorylayer/
@@ -258,89 +233,45 @@ NeuronLayer stores project data separately for each project:
 │   │   ├── memorylayer.db    # SQLite database
 │   │   └── embeddings/       # Vector index
 │   └── project-b-def456/
-│       ├── memorylayer.db
-│       └── embeddings/
+│       └── ...
 └── registry.json             # Project registry
 ```
-
-Each project is isolated - no data mixing between projects.
 
 ---
 
 ## Privacy
 
-NeuronLayer is **100% local by default**:
+NeuronLayer is **100% local**:
 
 - All data stored on your machine
-- No cloud services required
-- No telemetry or tracking
-- Works completely offline
+- No cloud services
+- No telemetry
+- Works offline
 
 ---
 
 ## Development
 
-### Prerequisites
-
-- Node.js 18+
-- npm or yarn
-
-### Setup
-
 ```bash
-# Clone the repository
+# Clone
 git clone https://github.com/abhisavakar/neuronlayer.git
 cd neuronlayer
 
-# Install dependencies
+# Install
 npm install
 
 # Build
 npm run build
 
-# Run tests
+# Test
 npm test
-
-# Type check
-npm run typecheck
 ```
-
----
-
-## Contributing
-
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-### Areas We Need Help
-
-- Additional language support (Python, Go, Rust AST)
-- IDE extensions (VS Code, JetBrains)
-- Cursor integration (when they add MCP support)
-- Documentation improvements
-- Performance optimizations
-
----
-
-## Roadmap
-
-- [x] Core MCP server
-- [x] Living Documentation
-- [x] Context Rot Prevention
-- [x] Confidence Scoring
-- [x] Change Intelligence
-- [x] Architecture Enforcement
-- [x] Test-Aware Suggestions
-- [x] Auto-setup for Claude Desktop
-- [x] Auto-setup for OpenCode
-- [ ] VS Code extension
-- [ ] Cursor support (pending MCP)
-- [ ] Team features (shared memory)
 
 ---
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License - see [LICENSE](LICENSE)
 
 ---
 
@@ -350,16 +281,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-## Acknowledgments
-
-Built with:
-- [Model Context Protocol](https://modelcontextprotocol.io/) by Anthropic
-- [better-sqlite3](https://github.com/WiseLibs/better-sqlite3)
-- [tree-sitter](https://tree-sitter.github.io/tree-sitter/) for AST parsing
-- [Xenova/transformers](https://github.com/xenova/transformers.js) for embeddings
-
----
-
-**Made with determination over a weekend.**
-
-*Your codebase documents itself. AI that never forgets.*
+Built with [Model Context Protocol](https://modelcontextprotocol.io/) by Anthropic.
