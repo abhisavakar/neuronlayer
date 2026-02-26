@@ -62,7 +62,7 @@ MemoryLayer gives AI assistants persistent, intelligent memory:
 ### Installation
 
 ```bash
-npm install -g memorylayer
+npm install -g memory-layer
 ```
 
 ### Usage with Claude Desktop
@@ -74,7 +74,7 @@ Add to your Claude Desktop config (`claude_desktop_config.json`):
   "mcpServers": {
     "memorylayer": {
       "command": "npx",
-      "args": ["-y", "memorylayer", "--project", "/path/to/your/project"]
+      "args": ["-y", "memory-layer", "--project", "/path/to/your/project"]
     }
   }
 }

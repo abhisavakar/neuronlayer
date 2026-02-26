@@ -1,5 +1,5 @@
 {
-  "name": "memorylayer",
+  "name": "memory-layer",
   "version": "0.1.0",
   "description": "Persistent memory layer for AI coding assistants - MCP server that makes AI truly understand your codebase",
   "type": "module",
