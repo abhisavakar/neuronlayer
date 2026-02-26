@@ -12,6 +12,7 @@ test-*.ts
 # Documentation (internal)
 memorylayer/
 docs/
+documentation/
 
 # Development files
 .claude/

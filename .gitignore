@@ -42,3 +42,6 @@ coverage/
 # User-specific MCP config
 .mcp.json
 opencode.json
+
+# Internal documentation
+documentation/
