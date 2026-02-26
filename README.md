@@ -69,7 +69,7 @@ Just restart your AI tool and NeuronLayer is active.
 
 ## MCP Tools
 
-NeuronLayer exposes **12 MCP tools** organized into 6 gateway tools and 6 standalone tools.
+NeuronLayer exposes **14 MCP tools** organized into 6 gateway tools and 8 standalone tools.
 
 ### Gateway Tools (Smart Routing)
 
@@ -88,6 +88,8 @@ These are the main tools. Each routes to multiple internal capabilities based on
 
 | Tool | Purpose |
 |------|---------|
+| `memory_refresh` | **NEW** Trigger manual refresh after external changes (git pull) |
+| `get_refresh_status` | **NEW** Check idle tasks, activity status, git state |
 | `switch_project` | Switch between registered projects |
 | `switch_feature_context` | Resume work on a previous feature |
 | `trigger_compaction` | Reduce memory when context is full |
@@ -111,11 +113,40 @@ These are the main tools. Each routes to multiple internal capabilities based on
 | **Test Indexing** | Working | Index tests, predict failures |
 | **Git Integration** | Working | Track changes, correlate with decisions |
 | **Multi-Project** | Working | Switch between projects |
+| **Intelligent Refresh** | **NEW** | Smart sync with cheap pre-checks |
+
+### Intelligent Refresh System (v0.1.4)
+
+NeuronLayer now includes a tiered refresh architecture that eliminates wasteful polling:
+
+```
+TIER 1: REAL-TIME
+├── File changes → Chokidar watcher → immediate invalidation
+├── User queries → immediate tracking
+└── File access → immediate hot cache update
+
+TIER 2: ON-DEMAND WITH CHEAP PRE-CHECK
+├── Git sync → check HEAD first (5ms), only sync if changed
+├── Summaries → check lastModified before regenerating
+└── Bug diagnosis → sync git first if HEAD changed
+
+TIER 3: IDLE-TIME MAINTENANCE
+├── When user idle > 30s AND git changed → sync git
+├── When idle > 5min since last update → update importance scores
+└── One task at a time, non-blocking
+
+TIER 4: SESSION-BASED
+├── Engine init → full git sync
+└── Shutdown → persist state
+```
+
+**Key optimization**: Instead of running expensive `git log` operations (~100ms+), we cache the HEAD commit and only sync when it changes (~5ms check).
 
 ### Modules
 
 ```
 src/core/
+├── refresh/             # NEW: Intelligent refresh system
 ├── living-docs/         # Architecture & changelog generation
 ├── context-rot/         # Context health & compaction
 ├── confidence/          # Source tracking & conflict detection
@@ -263,8 +294,8 @@ npm install
 # Build
 npm run build
 
-# Test
-npm test
+# Type check
+npm run typecheck
 ```
 
 ---
