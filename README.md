@@ -270,32 +270,25 @@ Each project has isolated data:
 
 ---
 
-## Real-World Performance
+## NeuronLayer vs grep
 
-Benchmarked on Express.js (141 files, 21,487 lines of code):
+NeuronLayer **doesn't compete with grep** - Claude already has grep. They serve different purposes:
 
-| Operation | WITHOUT MCP (grep) | WITH MCP (NeuronLayer) |
-|-----------|-------------------|------------------------|
-| Initial Setup | 0ms | ~28s (one-time indexing) |
-| Text Search | 56-60ms | ~10-50ms (cached) |
-| File Walk | 11ms | ~5ms (indexed) |
+| grep does | NeuronLayer does |
+|-----------|------------------|
+| Text matching | **Semantic search** ("how does auth work here?") |
+| Regex patterns | **Persistent memory** (decisions survive across sessions) |
+| Fast file search | **Architectural awareness** (knows module relationships) |
+| | **Pattern learning** (learns your coding conventions) |
+| | **Context preservation** (survives conversation resets) |
 
-**Honest Assessment:**
-- **grep wins** for simple text matching (56ms vs ~30ms)
-- **NeuronLayer wins** for semantic understanding and persistent memory
-- The ~28 second indexing is a one-time cost per session
-- After indexing, queries use cached embeddings
+**Real-world indexing** (Express.js - 141 files, 21k LOC):
+- First-time indexing: ~28 seconds (one-time for new codebases)
+- Subsequent sessions: Only changed files re-indexed (content hash check)
+- Index persists in SQLite between sessions
 
-**When NeuronLayer is Worth It:**
-- Long coding sessions (memory persists across context)
-- Complex queries ("how does auth work here?")
-- Architectural decisions (tracked & searchable)
-- Pattern consistency (learns your conventions)
-- Test awareness (knows what tests cover what)
-
-**When grep is Better:**
-- Quick one-off text searches
-- Small projects where indexing overhead isn't worth it
+**Use grep for:** "find all files containing `router`"
+**Use NeuronLayer for:** "how does the routing system work?" or "what decisions were made about authentication?"
 
 ---
 
