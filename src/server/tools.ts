@@ -890,6 +890,28 @@ export const toolDefinitions: ToolDefinition[] = [
       },
       required: ['file']
     }
+  },
+  // Intelligent Refresh System tools
+  {
+    name: 'memory_refresh',
+    description: 'Trigger a manual refresh of the memory layer. Syncs git changes, updates importance scores, and executes pending maintenance tasks. Use this when you need the latest state after external changes (e.g., git pull).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        force: {
+          type: 'boolean',
+          description: 'Force refresh even if no changes detected (default: false)'
+        }
+      }
+    }
+  },
+  {
+    name: 'get_refresh_status',
+    description: 'Get the current status of the intelligent refresh system including idle tasks, last activity, and git state.',
+    inputSchema: {
+      type: 'object',
+      properties: {}
+    }
   }
 ];
 
@@ -2252,6 +2274,54 @@ export async function handleToolCall(
           : coverage.uncoveredFunctions.length > 0
             ? `${coverage.coveragePercent}% coverage - ${coverage.uncoveredFunctions.length} function(s) need tests`
             : `${coverage.totalTests} test(s) cover ${file}`
+      };
+    }
+
+    // Intelligent Refresh System tools
+    case 'memory_refresh': {
+      const force = args.force as boolean | undefined;
+
+      if (force) {
+        const result = engine.triggerRefresh();
+        return {
+          success: true,
+          forced: true,
+          git_synced: result.gitSynced,
+          importance_updated: result.importanceUpdated,
+          tasks_executed: result.tasksExecuted,
+          message: `Force refresh complete: ${result.gitSynced} git changes synced`
+        };
+      } else {
+        // Normal refresh - only sync if there are new commits
+        const gitSynced = engine.syncGitChanges();
+        return {
+          success: true,
+          forced: false,
+          git_synced: gitSynced,
+          message: gitSynced > 0
+            ? `Refresh complete: ${gitSynced} git changes synced`
+            : 'No new changes to sync'
+        };
+      }
+    }
+
+    case 'get_refresh_status': {
+      const status = engine.getRefreshStatus();
+
+      return {
+        last_activity: new Date(status.lastActivity).toISOString(),
+        is_idle: status.isIdle,
+        idle_duration_seconds: Math.round(status.idleDuration / 1000),
+        git_head: status.gitHead?.slice(0, 7) || null,
+        has_pending_changes: status.hasNewCommits,
+        idle_tasks: status.idleTasks.map(t => ({
+          name: t.name,
+          last_run: t.lastRun > 0 ? new Date(t.lastRun).toISOString() : 'never',
+          ready_to_run: t.readyToRun
+        })),
+        message: status.isIdle
+          ? `System idle for ${Math.round(status.idleDuration / 1000)}s, ${status.idleTasks.filter(t => t.readyToRun).length} task(s) ready`
+          : 'System active'
       };
     }
 

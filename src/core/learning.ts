@@ -37,6 +37,8 @@ export class LearningEngine {
   private hotCache: Map<string, { content: string; accessCount: number; lastAccessed: number }> = new Map();
   private readonly MAX_CACHE_SIZE = 50;
   private readonly CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+  private lastImportanceUpdate: number = 0;
+  private readonly IMPORTANCE_UPDATE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
   constructor(db: Database.Database) {
     this.db = db;
@@ -386,10 +388,39 @@ export class LearningEngine {
   }
 
   /**
+   * Check if importance update should be skipped
+   * Returns true if we've already updated within the last 5 minutes
+   */
+  shouldSkipImportanceUpdate(): boolean {
+    const now = Date.now();
+    return now - this.lastImportanceUpdate < this.IMPORTANCE_UPDATE_INTERVAL_MS;
+  }
+
+  /**
+   * Get time since last importance update in milliseconds
+   */
+  getTimeSinceLastImportanceUpdate(): number {
+    return Date.now() - this.lastImportanceUpdate;
+  }
+
+  /**
+   * Get the last importance update timestamp
+   */
+  getLastImportanceUpdateTime(): number {
+    return this.lastImportanceUpdate;
+  }
+
+  /**
    * Update importance scores for all files based on usage patterns
    * Called by background intelligence loop
+   * Gated to run at most once per 5 minutes
    */
   updateImportanceScores(): void {
+    // Gate: skip if we've already updated recently
+    if (this.shouldSkipImportanceUpdate()) {
+      return;
+    }
+
     try {
       // Get all files with access stats
       const stmt = this.db.prepare(`
@@ -428,6 +459,9 @@ export class LearningEngine {
           importance
         );
       }
+
+      // Update the timestamp to prevent running again within the interval
+      this.lastImportanceUpdate = Date.now();
     } catch (error) {
       console.error('Error updating importance scores:', error);
     }

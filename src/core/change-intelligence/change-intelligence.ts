@@ -19,6 +19,8 @@ export class ChangeIntelligence {
   private bugCorrelator: BugCorrelator;
   private fixSuggester: FixSuggester;
   private initialized = false;
+  private lastKnownHead: string | null = null;
+  private lastBugScanHead: string | null = null;
 
   constructor(
     projectPath: string,
@@ -38,6 +40,39 @@ export class ChangeIntelligence {
     const synced = this.changeTracker.syncFromGit(100);
     this.initialized = true;
     return synced;
+  }
+
+  // Sync recent git changes on-demand (event-driven alternative to polling)
+  syncFromGit(limit: number = 20): number {
+    return this.changeTracker.syncFromGit(limit);
+  }
+
+  /**
+   * Get the last known HEAD commit
+   */
+  getLastKnownHead(): string | null {
+    return this.lastKnownHead;
+  }
+
+  /**
+   * Update the last known HEAD (call this after syncing)
+   */
+  setLastKnownHead(head: string): void {
+    this.lastKnownHead = head;
+  }
+
+  /**
+   * Get the last HEAD where we scanned for bug fixes
+   */
+  getLastBugScanHead(): string | null {
+    return this.lastBugScanHead;
+  }
+
+  /**
+   * Update the last bug scan HEAD (call this after scanning)
+   */
+  setLastBugScanHead(head: string): void {
+    this.lastBugScanHead = head;
   }
 
   // Query what changed
@@ -83,6 +118,14 @@ export class ChangeIntelligence {
   // Record that a bug was fixed
   recordFix(bugId: string, fixDiff: string, cause?: string): boolean {
     return this.bugCorrelator.recordFix(bugId, fixDiff, cause);
+  }
+
+  /**
+   * Scan git history for fix commits and auto-record as bugs
+   * Called by background intelligence loop
+   */
+  scanForBugFixes(): number {
+    return this.bugCorrelator.scanForBugFixes();
   }
 
   // Search changes by keyword

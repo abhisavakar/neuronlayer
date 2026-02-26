@@ -246,6 +246,29 @@ export class FileSummarizer {
     return fileLastModified > summary.generatedAt;
   }
 
+  // Invalidate summary when file changes (event-driven)
+  invalidateSummary(fileId: number): boolean {
+    try {
+      const result = this.db.prepare('DELETE FROM file_summaries WHERE file_id = ?').run(fileId);
+      return result.changes > 0;
+    } catch {
+      return false;
+    }
+  }
+
+  // Invalidate summary by file path
+  invalidateSummaryByPath(filePath: string): boolean {
+    try {
+      const file = this.db.prepare('SELECT id FROM files WHERE path = ?').get(filePath) as { id: number } | undefined;
+      if (file) {
+        return this.invalidateSummary(file.id);
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
   // Get compression ratio stats
   getCompressionStats(): { totalFiles: number; avgCompression: number; totalTokensSaved: number } {
     const stmt = this.db.prepare(`

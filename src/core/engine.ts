@@ -22,6 +22,7 @@ import { TestAwareness } from './test-awareness/index.js';
 import { GhostMode, type GhostInsight, type ConflictWarning } from './ghost-mode.js';
 import { DejaVuDetector, type DejaVuMatch } from './deja-vu.js';
 import { CodeVerifier, type VerificationResult, type VerificationCheck, type ImportVerification, type SecurityScanResult, type DependencyCheckResult } from './code-verifier.js';
+import { GitStalenessChecker, ActivityGate } from './refresh/index.js';
 import { detectLanguage, getPreview, countLines } from '../utils/files.js';
 import type { MemoryLayerConfig, AssembledContext, Decision, ProjectSummary, SearchResult, CodeSymbol, SymbolKind, ActiveFeatureContext, HotContext } from '../types/index.js';
 import type { ArchitectureDoc, ComponentDoc, DailyChangelog, ChangelogOptions, ValidationResult, ActivityResult, UndocumentedItem, ContextHealth, CompactionResult, CompactionOptions, CriticalContext, DriftResult, ConfidenceResult, ConfidenceLevel, ConfidenceSources, ConflictResult, ChangeQueryResult, ChangeQueryOptions, Diagnosis, PastBug, FixSuggestion, Change, Pattern, PatternCategory, PatternValidationResult, ExistingFunction, TestInfo, TestFramework, TestValidationResult, TestUpdate, TestCoverage } from '../types/documentation.js';
@@ -53,13 +54,11 @@ export class MemoryLayerEngine {
   private ghostMode: GhostMode;
   private dejaVu: DejaVuDetector;
   private codeVerifier: CodeVerifier;
-  private backgroundInterval: NodeJS.Timeout | null = null;
+  private gitStalenessChecker: GitStalenessChecker;
+  private activityGate: ActivityGate;
   private initialized = false;
   private initializationStatus: 'pending' | 'indexing' | 'ready' | 'error' = 'pending';
   private indexingProgress: { indexed: number; total: number } = { indexed: 0, total: 0 };
-
-  // Background intelligence settings
-  private readonly BACKGROUND_REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
   constructor(config: MemoryLayerConfig) {
     this.config = config;
@@ -165,6 +164,10 @@ export class MemoryLayerEngine {
     // Phase 13: Initialize Code Verifier (pre-commit quality gate)
     this.codeVerifier = new CodeVerifier(config.projectPath);
 
+    // Intelligent Refresh System
+    this.gitStalenessChecker = new GitStalenessChecker(config.projectPath);
+    this.activityGate = new ActivityGate();
+
     // Register this project
     const projectInfo = this.projectManager.registerProject(config.projectPath);
     this.projectManager.setActiveProject(projectInfo.id);
@@ -197,6 +200,13 @@ export class MemoryLayerEngine {
 
       if (stats.indexed > 0) {
         console.error(`Indexing complete: ${stats.indexed} files indexed`);
+        // Log activity for indexing
+        this.livingDocs.getActivityTracker().logActivity(
+          'indexing_complete',
+          `Indexed ${stats.indexed} files`,
+          undefined,
+          { total: stats.total, indexed: stats.indexed }
+        );
       } else {
         console.error(`Index up to date (${stats.total} files)`);
       }
@@ -209,6 +219,9 @@ export class MemoryLayerEngine {
     this.indexer.on('fileIndexed', (path) => {
       // Track file in feature context
       this.featureContextManager.onFileOpened(path);
+
+      // Invalidate cached summary when file changes (event-driven, not polling)
+      this.summarizer.invalidateSummaryByPath(path);
     });
 
     this.indexer.on('error', (error) => {
@@ -247,8 +260,17 @@ export class MemoryLayerEngine {
         console.error(`Test awareness: ${testResult.testsIndexed} tests indexed (${testResult.framework})`);
       }
 
-      // Start background intelligence loop
-      this.startBackgroundIntelligence();
+      // Scan for bug fixes from git history (one-time on init, not polling)
+      this.changeIntelligence.scanForBugFixes();
+
+      // Initialize git staleness checker with current HEAD
+      this.gitStalenessChecker.updateCachedHead();
+
+      // Register idle-time maintenance tasks
+      this.registerIdleTasks();
+
+      // Start idle monitoring
+      this.activityGate.startIdleMonitoring(10_000);
 
       this.initialized = true;
       this.initializationStatus = 'ready';
@@ -271,30 +293,129 @@ export class MemoryLayerEngine {
   }
 
   /**
-   * Background Intelligence Loop - continuously learn and update without user intervention
+   * Register idle-time maintenance tasks
    */
-  private startBackgroundIntelligence(): void {
-    // Clear any existing interval
-    if (this.backgroundInterval) {
-      clearInterval(this.backgroundInterval);
-    }
-
-    // Refresh git changes every 5 minutes
-    this.backgroundInterval = setInterval(() => {
-      try {
-        // Sync recent git changes
+  private registerIdleTasks(): void {
+    // Git sync when idle and HEAD has changed
+    this.activityGate.registerIdleTask('git-sync', () => {
+      if (this.gitStalenessChecker.hasNewCommits()) {
         const synced = this.changeIntelligence.syncFromGit(20);
         if (synced > 0) {
-          console.error(`[Background] Synced ${synced} recent changes from git`);
+          this.changeIntelligence.scanForBugFixes();
+          console.error(`Idle sync: ${synced} git changes synced`);
         }
-
-        // Update importance scores for recently accessed files
-        this.learningEngine.updateImportanceScores();
-      } catch (error) {
-        // Silent fail for background tasks
-        console.error('[Background] Error in intelligence loop:', error);
       }
-    }, this.BACKGROUND_REFRESH_INTERVAL_MS);
+    }, {
+      minIdleMs: 30_000,     // 30 seconds idle
+      intervalMs: 60_000     // Check at most every minute
+    });
+
+    // Importance score updates when idle for longer
+    this.activityGate.registerIdleTask('importance-update', () => {
+      this.learningEngine.updateImportanceScores();
+    }, {
+      minIdleMs: 60_000,     // 1 minute idle
+      intervalMs: 300_000    // Max once per 5 minutes
+    });
+  }
+
+  /**
+   * Sync git changes on-demand with cheap pre-check
+   * Only syncs if HEAD has changed, otherwise returns 0
+   */
+  syncGitChanges(limit: number = 20): number {
+    // Record activity
+    this.activityGate.recordActivity();
+
+    try {
+      // Cheap pre-check: has HEAD changed?
+      if (!this.gitStalenessChecker.hasNewCommits()) {
+        return 0; // No new commits, skip expensive sync
+      }
+
+      const synced = this.changeIntelligence.syncFromGit(limit);
+      if (synced > 0) {
+        // Also scan for bug fixes when syncing
+        this.changeIntelligence.scanForBugFixes();
+      }
+      return synced;
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
+   * Force sync git changes, bypassing the staleness check
+   */
+  forceSyncGitChanges(limit: number = 20): number {
+    this.activityGate.recordActivity();
+    this.gitStalenessChecker.updateCachedHead();
+
+    try {
+      const synced = this.changeIntelligence.syncFromGit(limit);
+      if (synced > 0) {
+        this.changeIntelligence.scanForBugFixes();
+      }
+      return synced;
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
+   * Trigger a full refresh of the memory layer
+   * Syncs git changes, updates importance scores, etc.
+   */
+  triggerRefresh(): {
+    gitSynced: number;
+    importanceUpdated: boolean;
+    tasksExecuted: string[];
+  } {
+    this.activityGate.recordActivity();
+
+    // Force git sync
+    this.gitStalenessChecker.updateCachedHead();
+    const gitSynced = this.forceSyncGitChanges();
+
+    // Update importance scores
+    this.learningEngine.updateImportanceScores();
+
+    return {
+      gitSynced,
+      importanceUpdated: true,
+      tasksExecuted: ['git-sync', 'importance-update']
+    };
+  }
+
+  /**
+   * Get refresh system status
+   */
+  getRefreshStatus(): {
+    lastActivity: number;
+    isIdle: boolean;
+    idleDuration: number;
+    gitHead: string | null;
+    hasNewCommits: boolean;
+    idleTasks: Array<{
+      name: string;
+      lastRun: number;
+      readyToRun: boolean;
+    }>;
+  } {
+    const status = this.activityGate.getStatus();
+
+    return {
+      lastActivity: this.activityGate.getLastActivity(),
+      isIdle: status.isIdle,
+      idleDuration: status.idleDuration,
+      gitHead: this.gitStalenessChecker.getCachedHead(),
+      hasNewCommits: this.gitStalenessChecker.hasNewCommits(),
+      idleTasks: status.tasks.map(t => ({
+        name: t.name,
+        lastRun: t.lastRun,
+        readyToRun: t.readyToRun
+      }))
+    };
   }
 
   /**
@@ -313,6 +434,9 @@ export class MemoryLayerEngine {
   }
 
   async getContext(query: string, currentFile?: string, maxTokens?: number): Promise<AssembledContext> {
+    // Record activity for refresh system
+    this.activityGate.recordActivity();
+
     // Track the query
     this.learningEngine.trackEvent({ eventType: 'query', query });
 
@@ -339,6 +463,7 @@ export class MemoryLayerEngine {
   }
 
   async searchCodebase(query: string, limit: number = 10): Promise<SearchResult[]> {
+    this.activityGate.recordActivity();
     const embedding = await this.indexer.getEmbeddingGenerator().embed(query);
     let results = this.tier2.search(embedding, limit * 2); // Get more for re-ranking
 
@@ -354,7 +479,28 @@ export class MemoryLayerEngine {
     files?: string[],
     tags?: string[]
   ): Promise<Decision> {
-    return this.decisionTracker.recordDecision(title, description, files || [], tags || []);
+    this.activityGate.recordActivity();
+    const decision = await this.decisionTracker.recordDecision(title, description, files || [], tags || []);
+
+    // Log activity for decision recording
+    this.livingDocs.getActivityTracker().logActivity(
+      'decision_recorded',
+      `Decision: ${title}`,
+      undefined,
+      { decisionId: decision.id }
+    );
+
+    // Auto-mark decisions as critical context
+    this.contextRotPrevention.markCritical(
+      `Decision: ${title}\n${description}`,
+      {
+        type: 'decision',
+        reason: 'Architectural decision',
+        source: 'auto'
+      }
+    );
+
+    return decision;
   }
 
   getRecentDecisions(limit: number = 10): Decision[] {
@@ -370,6 +516,7 @@ export class MemoryLayerEngine {
   }
 
   async getFileContext(filePath: string): Promise<{ content: string; language: string; lines: number } | null> {
+    this.activityGate.recordActivity();
     const absolutePath = join(this.config.projectPath, filePath);
 
     if (!existsSync(absolutePath)) {
@@ -1440,14 +1587,8 @@ export class MemoryLayerEngine {
 
   shutdown(): void {
     console.error('Shutting down MemoryLayer...');
-
-    // Stop background intelligence
-    if (this.backgroundInterval) {
-      clearInterval(this.backgroundInterval);
-      this.backgroundInterval = null;
-    }
-
     this.indexer.stopWatching();
+    this.activityGate.shutdown();
     this.tier1.save();
     this.featureContextManager.shutdown();
     closeDatabase(this.db);

@@ -413,6 +413,106 @@ export class BugCorrelator {
     return null;
   }
 
+  /**
+   * Scan git history for fix commits and auto-record as bugs
+   * Looks for commits with "fix:", "bugfix:", "hotfix:" prefixes or "fixes #" references
+   */
+  scanForBugFixes(): number {
+    try {
+      // Get commits from change_history that look like bug fixes
+      const fixCommits = this.db.prepare(`
+        SELECT DISTINCT commit_hash, commit_message, file, diff, timestamp
+        FROM change_history
+        WHERE (
+          LOWER(commit_message) LIKE 'fix:%' OR
+          LOWER(commit_message) LIKE 'fix(%' OR
+          LOWER(commit_message) LIKE 'bugfix:%' OR
+          LOWER(commit_message) LIKE 'hotfix:%' OR
+          LOWER(commit_message) LIKE '%fixes #%' OR
+          LOWER(commit_message) LIKE '%fixed #%' OR
+          LOWER(commit_message) LIKE '%closes #%'
+        )
+        ORDER BY timestamp DESC
+        LIMIT 50
+      `).all() as Array<{
+        commit_hash: string;
+        commit_message: string;
+        file: string;
+        diff: string | null;
+        timestamp: number;
+      }>;
+
+      let recorded = 0;
+
+      for (const commit of fixCommits) {
+        // Check if we already have this bug recorded (by commit hash in related_changes)
+        const existing = this.db.prepare(`
+          SELECT id FROM bug_history
+          WHERE fixed_by = ? OR related_changes LIKE ?
+        `).get(commit.commit_hash, `%${commit.commit_hash}%`);
+
+        if (existing) continue;
+
+        // Extract the bug description from commit message
+        const errorDescription = this.extractErrorFromCommitMessage(commit.commit_message);
+
+        // Record the bug as already fixed
+        const id = randomUUID();
+
+        this.db.prepare(`
+          INSERT INTO bug_history (id, error, file, timestamp, status, fixed_by, fixed_at, fix_diff, cause)
+          VALUES (?, ?, ?, ?, 'fixed', ?, ?, ?, ?)
+        `).run(
+          id,
+          errorDescription,
+          commit.file,
+          commit.timestamp,
+          commit.commit_hash,
+          commit.timestamp,
+          commit.diff?.slice(0, 2000) || null,
+          commit.commit_message
+        );
+
+        recorded++;
+      }
+
+      return recorded;
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
+   * Extract a bug/error description from a fix commit message
+   */
+  private extractErrorFromCommitMessage(message: string): string {
+    // Remove common prefixes
+    let cleaned = message
+      .replace(/^fix\s*[:\(]/i, '')
+      .replace(/^bugfix\s*[:\(]/i, '')
+      .replace(/^hotfix\s*[:\(]/i, '')
+      .replace(/\):\s*/, ': ')
+      .trim();
+
+    // Extract issue references
+    const issueMatch = cleaned.match(/(?:fixes|fixed|closes)\s*#(\d+)/i);
+    if (issueMatch) {
+      cleaned = cleaned.replace(/(?:fixes|fixed|closes)\s*#\d+/gi, '').trim();
+      if (cleaned) {
+        cleaned = `Issue #${issueMatch[1]}: ${cleaned}`;
+      } else {
+        cleaned = `Issue #${issueMatch[1]}`;
+      }
+    }
+
+    // Capitalize first letter
+    if (cleaned.length > 0) {
+      cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+    }
+
+    return cleaned || message;
+  }
+
   // Get bug statistics
   getBugStats(): {
     total: number;

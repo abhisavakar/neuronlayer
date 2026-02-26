@@ -40,6 +40,9 @@ export class LivingDocumentationEngine {
   async generateArchitectureDocs(): Promise<ArchitectureDoc> {
     const doc = await this.archGen.generate();
 
+    // Store architecture docs in documentation table
+    this.storeDocumentation('_architecture', 'architecture', JSON.stringify(doc));
+
     // Log activity
     this.activityTracker.logActivity(
       'doc_generation',
@@ -49,6 +52,13 @@ export class LivingDocumentationEngine {
     );
 
     return doc;
+  }
+
+  /**
+   * Get the activity tracker for external use
+   */
+  getActivityTracker(): ActivityTracker {
+    return this.activityTracker;
   }
 
   async generateComponentDoc(filePath: string): Promise<ComponentDoc> {
@@ -89,6 +99,20 @@ export class LivingDocumentationEngine {
 
   private storeDocumentation(filePath: string, docType: string, content: string): void {
     try {
+      // Special handling for architecture docs (no file ID)
+      if (filePath === '_architecture') {
+        // Use file_id = 0 for special docs like architecture
+        const stmt = this.db.prepare(`
+          INSERT INTO documentation (file_id, doc_type, content, generated_at)
+          VALUES (0, ?, ?, unixepoch())
+          ON CONFLICT(file_id, doc_type) DO UPDATE SET
+            content = excluded.content,
+            generated_at = unixepoch()
+        `);
+        stmt.run(docType, content);
+        return;
+      }
+
       // Get file ID
       const fileStmt = this.db.prepare('SELECT id FROM files WHERE path = ?');
       const fileRow = fileStmt.get(filePath) as { id: number } | undefined;

@@ -36,9 +36,9 @@ coverage/
 # Claude Code
 .claude/
 
-# Benchmark output
-benchmark-results/
-test-projects/
-
 # MemoryLayer data (generated at runtime)
 .memorylayer/
+
+# User-specific MCP config
+.mcp.json
+opencode.json

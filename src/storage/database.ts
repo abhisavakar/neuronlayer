@@ -252,6 +252,15 @@ export function initializeDatabase(dbPath: string): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_test_index_file ON test_index(file_path);
     CREATE INDEX IF NOT EXISTS idx_test_index_name ON test_index(test_name);
     CREATE INDEX IF NOT EXISTS idx_test_covers_files ON test_index(covers_files);
+
+    -- Intelligent Refresh System: State persistence
+    CREATE TABLE IF NOT EXISTS refresh_state (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at INTEGER DEFAULT (unixepoch())
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_refresh_state_key ON refresh_state(key);
   `);
 
   return db;
