@@ -3,7 +3,8 @@ import { ADRExporter } from '../core/adr-exporter.js';
 import { initializeDatabase } from '../storage/database.js';
 import { Tier2Storage } from '../storage/tier2.js';
 import { join } from 'path';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { homedir } from 'os';
 
 const projectManager = new ProjectManager();
 
@@ -231,6 +232,87 @@ export function showProject(projectId?: string): CommandResult {
   };
 }
 
+// Initialize neuronlayer for current project + auto-configure Claude Desktop
+export function initProject(projectPath?: string): CommandResult {
+  const targetPath = projectPath || process.cwd();
+
+  // 1. Register the project
+  const addResult = addProject(targetPath);
+  if (!addResult.success) {
+    return addResult;
+  }
+
+  const projectInfo = addResult.data as ProjectInfo;
+
+  // 2. Find Claude Desktop config
+  const platform = process.platform;
+  let configPath: string;
+
+  if (platform === 'win32') {
+    configPath = join(homedir(), 'AppData', 'Roaming', 'Claude', 'claude_desktop_config.json');
+  } else if (platform === 'darwin') {
+    configPath = join(homedir(), 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json');
+  } else {
+    configPath = join(homedir(), '.config', 'claude', 'claude_desktop_config.json');
+  }
+
+  // 3. Read or create config
+  let config: { mcpServers?: Record<string, unknown> } = { mcpServers: {} };
+
+  try {
+    if (existsSync(configPath)) {
+      const content = readFileSync(configPath, 'utf-8');
+      config = JSON.parse(content);
+    } else {
+      // Create directory if needed
+      const configDir = configPath.substring(0, configPath.lastIndexOf(platform === 'win32' ? '\\' : '/'));
+      mkdirSync(configDir, { recursive: true });
+    }
+  } catch {
+    // Config doesn't exist or is invalid, start fresh
+  }
+
+  if (!config.mcpServers) {
+    config.mcpServers = {};
+  }
+
+  // 4. Add neuronlayer server for this project
+  const serverName = `neuronlayer-${projectInfo.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+
+  config.mcpServers[serverName] = {
+    command: 'npx',
+    args: ['-y', 'neuronlayer', '--project', targetPath]
+  };
+
+  // 5. Write config
+  try {
+    writeFileSync(configPath, JSON.stringify(config, null, 2));
+  } catch (err) {
+    return {
+      success: false,
+      message: `Failed to write Claude Desktop config: ${err instanceof Error ? err.message : String(err)}`
+    };
+  }
+
+  return {
+    success: true,
+    message: `
+NeuronLayer initialized!
+
+Project: ${projectInfo.name}
+Path: ${targetPath}
+Data: ${projectInfo.dataDir}
+
+Claude Desktop configured:
+  Config: ${configPath}
+  Server: ${serverName}
+
+Restart Claude Desktop to activate.
+`.trim(),
+    data: { projectInfo, configPath, serverName }
+  };
+}
+
 // Print help
 export function printHelp(): void {
   console.log(`
@@ -240,6 +322,7 @@ USAGE:
   memorylayer [command] [options]
 
 COMMANDS:
+  init [path]               Initialize project + auto-configure Claude Desktop
   (no command)              Start MCP server for Claude Desktop
   projects list             List all registered projects
   projects add <path>       Add a project to the registry
@@ -256,8 +339,12 @@ OPTIONS:
   --format <type>           ADR format: madr, nygard, simple
 
 EXAMPLES:
+  # Quick setup (auto-configures Claude Desktop)
+  cd /path/to/project
+  neuronlayer init
+
   # Start MCP server
-  memorylayer --project /path/to/project
+  neuronlayer --project /path/to/project
 
   # List all projects
   memorylayer projects list
@@ -289,6 +376,14 @@ export function executeCLI(args: string[]): void {
     case '-h':
       printHelp();
       break;
+
+    case 'init': {
+      const path = args[1];
+      const result = initProject(path);
+      console.log(result.message);
+      if (!result.success) process.exit(1);
+      break;
+    }
 
     case 'projects': {
       switch (subcommand) {

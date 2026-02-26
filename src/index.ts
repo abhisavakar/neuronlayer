@@ -7,7 +7,7 @@ async function main(): Promise<void> {
 
   // Check for CLI commands first
   const firstArg = args[0];
-  const cliCommands = ['projects', 'export', 'help', '--help', '-h'];
+  const cliCommands = ['init', 'projects', 'export', 'help', '--help', '-h'];
 
   if (firstArg && cliCommands.includes(firstArg)) {
     // Handle CLI commands
