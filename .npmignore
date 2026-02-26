@@ -1,0 +1,42 @@
+# Source maps (large)
+*.map
+
+# Tests
+tests/
+__tests__/
+*.test.ts
+*.test.js
+test-*.js
+test-*.ts
+
+# Documentation (internal)
+memorylayer/
+docs/
+
+# Development files
+.claude/
+.memorylayer/
+.github/
+.vscode/
+
+# Benchmark
+benchmark-results/
+test-projects/
+
+# Build config
+esbuild.benchmark.cjs
+tsconfig.json
+vitest.config.ts
+
+# Misc
+errors.txt
+*.log
+.gitignore
+TESTING.md
+opencode.json
+.mcp.json
+
+# Agent (removed feature)
+src/agent/
+dist/agent.js
+dist/agent.js.map
