@@ -37,7 +37,9 @@ cd your-project
 neuronlayer init
 ```
 
-This registers your project and configures Claude Desktop, Claude Code, and OpenCode automatically. Restart your AI tool and you're ready.
+This registers your project and configures Claude Desktop, Claude Code, OpenCode, and Cursor automatically. Restart your AI tool and you're ready.
+
+> **Windows users**: If upgrading, close any AI tools using NeuronLayer first (or run `taskkill /f /im node.exe`) before reinstalling. Windows locks native binaries while they're in use.
 
 ---
 
