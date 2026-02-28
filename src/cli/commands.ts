@@ -2,7 +2,7 @@ import { ProjectManager, type ProjectInfo } from '../core/project-manager.js';
 import { ADRExporter } from '../core/adr-exporter.js';
 import { initializeDatabase } from '../storage/database.js';
 import { Tier2Storage } from '../storage/tier2.js';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { homedir } from 'os';
 
@@ -278,7 +278,7 @@ function configureMCPClient(
   }
 }
 
-// Helper to configure project-local .mcp.json for Claude Code
+// Helper to configure project-local .mcp.json for Claude Code, OpenCode, and other tools
 function configureProjectMCP(
   configPath: string,
   projectPath: string
@@ -298,17 +298,19 @@ function configureProjectMCP(
     config.mcpServers = {};
   }
 
-  // Use simple name since this is project-specific
+  // Always use absolute path so the MCP server resolves correctly
+  // regardless of which tool launches it or from which working directory
+  const absoluteProjectPath = resolve(projectPath);
   config.mcpServers['neuronlayer'] = {
     command: 'npx',
-    args: ['-y', 'neuronlayer', '--project', '.']
+    args: ['-y', 'neuronlayer', '--project', absoluteProjectPath]
   };
 
   try {
     writeFileSync(configPath, JSON.stringify(config, null, 2));
-    return { success: true, message: `Claude Code: ${configPath} (project-local)` };
+    return { success: true, message: `Claude Code / OpenCode: ${configPath} (project-local)` };
   } catch (err) {
-    return { success: false, message: `Claude Code: Failed - ${err instanceof Error ? err.message : String(err)}` };
+    return { success: false, message: `Claude Code / OpenCode: Failed - ${err instanceof Error ? err.message : String(err)}` };
   }
 }
 
@@ -346,14 +348,8 @@ export function initProject(projectPath?: string): CommandResult {
     failedClients.push(claudeResult.message);
   }
 
-  // 3. Configure OpenCode
-  const openCodeConfigPath = join(homedir(), '.opencode', 'config.json');
-  const openCodeResult = configureMCPClient('OpenCode', openCodeConfigPath, serverName, targetPath);
-  if (openCodeResult.success) {
-    configuredClients.push(openCodeResult.message);
-  } else {
-    failedClients.push(openCodeResult.message);
-  }
+  // 3. OpenCode uses the same project-local .mcp.json as Claude Code
+  // (configured in step 4 below), so no separate config step needed
 
   // 4. Configure Claude Code (CLI) - use project-local .mcp.json
   // This ensures only the current project's NeuronLayer connects
