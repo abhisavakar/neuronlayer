@@ -1,4 +1,4 @@
-// Core types for MemoryLayer
+// Core types for NeuronLayer
 
 export interface Position {
   line: number;
@@ -117,7 +117,7 @@ export interface IndexingProgress {
   current?: string;
 }
 
-export interface MemoryLayerConfig {
+export interface NeuronLayerConfig {
   projectPath: string;
   dataDir: string;
   maxTokens: number;

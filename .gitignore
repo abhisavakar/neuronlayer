@@ -36,7 +36,8 @@ coverage/
 # Claude Code
 .claude/
 
-# MemoryLayer data (generated at runtime)
+# NeuronLayer data (generated at runtime)
+.neuronlayer/
 .memorylayer/
 
 # User-specific MCP config

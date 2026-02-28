@@ -6,7 +6,7 @@ import {
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import { MemoryLayerEngine } from '../core/engine.js';
+import { NeuronLayerEngine } from '../core/engine.js';
 import {
   allToolDefinitions,
   handleGatewayCall,
@@ -14,14 +14,14 @@ import {
 } from './gateways/index.js';
 import { handleToolCall } from './tools.js';
 import { resourceDefinitions, handleResourceRead } from './resources.js';
-import type { MemoryLayerConfig } from '../types/index.js';
+import type { NeuronLayerConfig } from '../types/index.js';
 
 export class MCPServer {
   private server: Server;
-  private engine: MemoryLayerEngine;
+  private engine: NeuronLayerEngine;
 
-  constructor(config: MemoryLayerConfig) {
-    this.engine = new MemoryLayerEngine(config);
+  constructor(config: NeuronLayerConfig) {
+    this.engine = new NeuronLayerEngine(config);
 
     this.server = new Server(
       {
@@ -128,7 +128,7 @@ export class MCPServer {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
 
-    console.error('MemoryLayer MCP server started');
+    console.error('NeuronLayer MCP server started');
 
     // Initialize the engine in the background (indexing, etc.)
     // This allows MCP to respond while indexing happens

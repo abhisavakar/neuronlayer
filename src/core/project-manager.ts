@@ -3,7 +3,7 @@ import { join, basename, resolve } from 'path';
 import { createHash } from 'crypto';
 import { homedir } from 'os';
 import Database from 'better-sqlite3';
-import type { MemoryLayerConfig } from '../types/index.js';
+import type { NeuronLayerConfig } from '../types/index.js';
 
 export interface ProjectInfo {
   id: string;
@@ -177,7 +177,7 @@ export class ProjectManager {
   }
 
   // Get config for a project
-  getProjectConfig(projectPath: string): MemoryLayerConfig {
+  getProjectConfig(projectPath: string): NeuronLayerConfig {
     const normalizedPath = resolve(projectPath);
     const dataDir = this.getProjectDataDir(normalizedPath);
 

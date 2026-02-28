@@ -22,7 +22,7 @@ export function listProjects(): CommandResult {
   if (projects.length === 0) {
     return {
       success: true,
-      message: 'No projects registered. Use "memorylayer projects add <path>" to add one.'
+      message: 'No projects registered. Use "neuronlayer projects add <path>" to add one.'
     };
   }
 
@@ -123,7 +123,7 @@ export function discoverProjects(): CommandResult {
     lines.push(`    ${path}`);
     lines.push('');
   }
-  lines.push('Use "memorylayer projects add <path>" to register a project.');
+  lines.push('Use "neuronlayer projects add <path>" to register a project.');
 
   return {
     success: true,
@@ -144,7 +144,7 @@ export function exportDecisions(
     if (!activeProject) {
       return {
         success: false,
-        message: 'No project specified and no active project. Use "memorylayer projects switch <id>" first.'
+        message: 'No project specified and no active project. Use "neuronlayer projects switch <id>" first.'
       };
     }
     targetPath = activeProject.path;
@@ -155,7 +155,7 @@ export function exportDecisions(
   if (!projectInfo) {
     return {
       success: false,
-      message: `Project not registered: ${targetPath}. Use "memorylayer projects add ${targetPath}" first.`
+      message: `Project not registered: ${targetPath}. Use "neuronlayer projects add ${targetPath}" first.`
     };
   }
 
@@ -216,7 +216,7 @@ export function showProject(projectId?: string): CommandResult {
       success: false,
       message: projectId
         ? `Project not found: ${projectId}`
-        : 'No active project. Use "memorylayer projects switch <id>" first.'
+        : 'No active project. Use "neuronlayer projects switch <id>" first.'
     };
   }
 
@@ -278,6 +278,40 @@ function configureMCPClient(
   }
 }
 
+// Helper to configure project-local .mcp.json for Claude Code
+function configureProjectMCP(
+  configPath: string,
+  projectPath: string
+): { success: boolean; message: string } {
+  let config: { mcpServers?: Record<string, unknown> } = { mcpServers: {} };
+
+  try {
+    if (existsSync(configPath)) {
+      const content = readFileSync(configPath, 'utf-8');
+      config = JSON.parse(content);
+    }
+  } catch {
+    // Config doesn't exist or is invalid, start fresh
+  }
+
+  if (!config.mcpServers) {
+    config.mcpServers = {};
+  }
+
+  // Use simple name since this is project-specific
+  config.mcpServers['neuronlayer'] = {
+    command: 'npx',
+    args: ['-y', 'neuronlayer', '--project', '.']
+  };
+
+  try {
+    writeFileSync(configPath, JSON.stringify(config, null, 2));
+    return { success: true, message: `Claude Code: ${configPath} (project-local)` };
+  } catch (err) {
+    return { success: false, message: `Claude Code: Failed - ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
 // Initialize neuronlayer for current project + auto-configure Claude Desktop & OpenCode
 export function initProject(projectPath?: string): CommandResult {
   const targetPath = projectPath || process.cwd();
@@ -321,12 +355,27 @@ export function initProject(projectPath?: string): CommandResult {
     failedClients.push(openCodeResult.message);
   }
 
-  // 4. Configure Claude Code (CLI) - uses same config location as Claude Desktop on some systems
-  // Also check for .claude.json in home directory
-  const claudeCodeConfigPath = join(homedir(), '.claude.json');
-  const claudeCodeResult = configureMCPClient('Claude Code', claudeCodeConfigPath, serverName, targetPath);
+  // 4. Configure Claude Code (CLI) - use project-local .mcp.json
+  // This ensures only the current project's NeuronLayer connects
+  const claudeCodeConfigPath = join(targetPath, '.mcp.json');
+  const claudeCodeResult = configureProjectMCP(claudeCodeConfigPath, targetPath);
   if (claudeCodeResult.success) {
     configuredClients.push(claudeCodeResult.message);
+  }
+
+  // 5. Configure Cursor
+  let cursorConfigPath: string;
+  if (platform === 'win32') {
+    cursorConfigPath = join(homedir(), 'AppData', 'Roaming', 'Cursor', 'User', 'globalStorage', 'cursor.mcp', 'mcp.json');
+  } else if (platform === 'darwin') {
+    cursorConfigPath = join(homedir(), 'Library', 'Application Support', 'Cursor', 'User', 'globalStorage', 'cursor.mcp', 'mcp.json');
+  } else {
+    cursorConfigPath = join(homedir(), '.config', 'Cursor', 'User', 'globalStorage', 'cursor.mcp', 'mcp.json');
+  }
+
+  const cursorResult = configureMCPClient('Cursor', cursorConfigPath, serverName, targetPath);
+  if (cursorResult.success) {
+    configuredClients.push(cursorResult.message);
   }
 
   // Build result message
@@ -357,14 +406,15 @@ ${configuredClients.map(c => '  ✓ ' + c).join('\n')}
 // Print help
 export function printHelp(): void {
   console.log(`
-MemoryLayer CLI - Persistent Memory for AI Coding Assistants
+NeuronLayer CLI - Code Intelligence for AI Coding Assistants
 
 USAGE:
-  memorylayer [command] [options]
+  neuronlayer [command] [options]
 
 COMMANDS:
-  init [path]               Initialize project + auto-configure Claude Desktop
-  (no command)              Start MCP server for Claude Desktop
+  init [path]               Initialize project + auto-configure AI tools
+  serve [options]           Start HTTP API server (for non-MCP tools)
+  (no command)              Start MCP server
   projects list             List all registered projects
   projects add <path>       Add a project to the registry
   projects remove <id>      Remove a project from the registry
@@ -376,6 +426,7 @@ COMMANDS:
 
 OPTIONS:
   --project, -p <path>      Path to the project directory
+  --port <number>           Port for HTTP server (default: 3333)
   --output, -o <dir>        Output directory for exports
   --format <type>           ADR format: madr, nygard, simple
 
@@ -388,19 +439,23 @@ EXAMPLES:
   neuronlayer --project /path/to/project
 
   # List all projects
-  memorylayer projects list
+  neuronlayer projects list
 
   # Add a new project
-  memorylayer projects add /path/to/my-project
+  neuronlayer projects add /path/to/my-project
 
   # Switch active project
-  memorylayer projects switch abc123
+  neuronlayer projects switch abc123
 
   # Export decisions to ADR files
-  memorylayer export --format madr
+  neuronlayer export --format madr
 
   # Discover projects
-  memorylayer projects discover
+  neuronlayer projects discover
+
+  # Start HTTP API server (for tools without MCP support)
+  neuronlayer serve --project /path/to/project
+  neuronlayer serve --port 8080
 
 For more information, visit: https://github.com/abhisavakar/neuronlayer
 `);
@@ -435,7 +490,7 @@ export function executeCLI(args: string[]): void {
           const path = args[2];
           if (!path) {
             console.error('Error: Project path required.');
-            console.error('Usage: memorylayer projects add <path>');
+            console.error('Usage: neuronlayer projects add <path>');
             process.exit(1);
           }
           const result = addProject(path);
@@ -447,7 +502,7 @@ export function executeCLI(args: string[]): void {
           const id = args[2];
           if (!id) {
             console.error('Error: Project ID required.');
-            console.error('Usage: memorylayer projects remove <id>');
+            console.error('Usage: neuronlayer projects remove <id>');
             process.exit(1);
           }
           const result = removeProject(id);
@@ -459,7 +514,7 @@ export function executeCLI(args: string[]): void {
           const id = args[2];
           if (!id) {
             console.error('Error: Project ID required.');
-            console.error('Usage: memorylayer projects switch <id>');
+            console.error('Usage: neuronlayer projects switch <id>');
             process.exit(1);
           }
           const result = switchProject(id);

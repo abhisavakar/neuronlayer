@@ -1,4 +1,4 @@
-import type { MemoryLayerEngine } from '../core/engine.js';
+import type { NeuronLayerEngine } from '../core/engine.js';
 
 export interface ResourceDefinition {
   uri: string;
@@ -9,13 +9,13 @@ export interface ResourceDefinition {
 
 export const resourceDefinitions: ResourceDefinition[] = [
   {
-    uri: 'memorylayer://decisions/recent',
+    uri: 'neuronlayer://decisions/recent',
     name: 'Recent Decisions',
     description: 'Last 10 architectural decisions made in this project',
     mimeType: 'application/json'
   },
   {
-    uri: 'memorylayer://project/overview',
+    uri: 'neuronlayer://project/overview',
     name: 'Project Overview',
     description: 'High-level project summary including languages, files, and structure',
     mimeType: 'text/markdown'
@@ -23,11 +23,11 @@ export const resourceDefinitions: ResourceDefinition[] = [
 ];
 
 export async function handleResourceRead(
-  engine: MemoryLayerEngine,
+  engine: NeuronLayerEngine,
   uri: string
 ): Promise<{ contents: string; mimeType: string }> {
   switch (uri) {
-    case 'memorylayer://decisions/recent': {
+    case 'neuronlayer://decisions/recent': {
       const decisions = engine.getRecentDecisions(10);
 
       const contents = JSON.stringify(
@@ -46,7 +46,7 @@ export async function handleResourceRead(
       return { contents, mimeType: 'application/json' };
     }
 
-    case 'memorylayer://project/overview': {
+    case 'neuronlayer://project/overview': {
       const summary = engine.getProjectSummary();
 
       const markdown = `# ${summary.name}

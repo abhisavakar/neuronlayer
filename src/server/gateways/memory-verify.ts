@@ -17,7 +17,7 @@
  * - Pre-commit quality gate
  */
 
-import type { MemoryLayerEngine } from '../../core/engine.js';
+import type { NeuronLayerEngine } from '../../core/engine.js';
 
 // ============================================================================
 // Types
@@ -130,7 +130,7 @@ export interface MemoryVerifyResponse {
  * Handle a memory_verify gateway call
  */
 export async function handleMemoryVerify(
-  engine: MemoryLayerEngine,
+  engine: NeuronLayerEngine,
   input: MemoryVerifyInput
 ): Promise<MemoryVerifyResponse> {
   const checks = input.checks || ['all'];

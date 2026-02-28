@@ -1,4 +1,4 @@
-import type { MemoryLayerEngine } from '../core/engine.js';
+import type { NeuronLayerEngine } from '../core/engine.js';
 
 export interface ToolDefinition {
   name: string;
@@ -369,7 +369,7 @@ export const toolDefinitions: ToolDefinition[] = [
   },
   {
     name: 'set_feature_context',
-    description: 'Start tracking a new feature. Tell MemoryLayer what you are working on for better context.',
+    description: 'Start tracking a new feature. Tell NeuronLayer what you are working on for better context.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -947,7 +947,7 @@ export const toolDefinitions: ToolDefinition[] = [
 ];
 
 export async function handleToolCall(
-  engine: MemoryLayerEngine,
+  engine: NeuronLayerEngine,
   toolName: string,
   args: Record<string, unknown>
 ): Promise<unknown> {

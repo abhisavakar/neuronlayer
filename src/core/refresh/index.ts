@@ -1,5 +1,5 @@
 /**
- * Intelligent Refresh System for MemoryLayer
+ * Intelligent Refresh System for NeuronLayer
  *
  * This module provides a tiered refresh architecture:
  *

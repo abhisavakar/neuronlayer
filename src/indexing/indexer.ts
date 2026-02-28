@@ -7,10 +7,10 @@ import { ASTParser } from './ast.js';
 import { FileWatcher, type FileEvent } from './watcher.js';
 import { Tier2Storage } from '../storage/tier2.js';
 import { isCodeFile, detectLanguage, hashContent, getPreview, countLines } from '../utils/files.js';
-import type { MemoryLayerConfig, IndexingProgress } from '../types/index.js';
+import type { NeuronLayerConfig, IndexingProgress } from '../types/index.js';
 
 export class Indexer extends EventEmitter {
-  private config: MemoryLayerConfig;
+  private config: NeuronLayerConfig;
   private embeddingGenerator: EmbeddingGenerator;
   private astParser: ASTParser;
   private watcher: FileWatcher;
@@ -19,7 +19,7 @@ export class Indexer extends EventEmitter {
   private pendingFiles: Set<string> = new Set();
   private processTimeout: NodeJS.Timeout | null = null;
 
-  constructor(config: MemoryLayerConfig, tier2: Tier2Storage) {
+  constructor(config: NeuronLayerConfig, tier2: Tier2Storage) {
     super();
     this.config = config;
     this.tier2 = tier2;

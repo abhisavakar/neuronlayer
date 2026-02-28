@@ -3,7 +3,7 @@
  *
  * Silently tracks what files Claude reads/writes. When code is written that
  * touches a file with recorded decisions, automatically checks for conflicts.
- * Makes MemoryLayer feel "telepathic" by surfacing relevant context proactively.
+ * Makes NeuronLayer feel "telepathic" by surfacing relevant context proactively.
  */
 
 import type { Decision } from '../types/index.js';

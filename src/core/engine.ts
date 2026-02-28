@@ -24,15 +24,15 @@ import { DejaVuDetector, type DejaVuMatch } from './deja-vu.js';
 import { CodeVerifier, type VerificationResult, type VerificationCheck, type ImportVerification, type SecurityScanResult, type DependencyCheckResult } from './code-verifier.js';
 import { GitStalenessChecker, ActivityGate } from './refresh/index.js';
 import { detectLanguage, getPreview, countLines } from '../utils/files.js';
-import type { MemoryLayerConfig, AssembledContext, Decision, ProjectSummary, SearchResult, CodeSymbol, SymbolKind, ActiveFeatureContext, HotContext } from '../types/index.js';
+import type { NeuronLayerConfig, AssembledContext, Decision, ProjectSummary, SearchResult, CodeSymbol, SymbolKind, ActiveFeatureContext, HotContext } from '../types/index.js';
 import type { ArchitectureDoc, ComponentDoc, DailyChangelog, ChangelogOptions, ValidationResult, ActivityResult, UndocumentedItem, ContextHealth, CompactionResult, CompactionOptions, CriticalContext, DriftResult, ConfidenceResult, ConfidenceLevel, ConfidenceSources, ConflictResult, ChangeQueryResult, ChangeQueryOptions, Diagnosis, PastBug, FixSuggestion, Change, Pattern, PatternCategory, PatternValidationResult, ExistingFunction, TestInfo, TestFramework, TestValidationResult, TestUpdate, TestCoverage } from '../types/documentation.js';
 import type Database from 'better-sqlite3';
 
 // Re-export types for external use
 export type { GhostInsight, ConflictWarning, DejaVuMatch, ResurrectedContext, VerificationResult, VerificationCheck, ImportVerification, SecurityScanResult, DependencyCheckResult };
 
-export class MemoryLayerEngine {
-  private config: MemoryLayerConfig;
+export class NeuronLayerEngine {
+  private config: NeuronLayerConfig;
   private db: Database.Database;
   private tier1: Tier1Storage;
   private tier2: Tier2Storage;
@@ -60,7 +60,7 @@ export class MemoryLayerEngine {
   private initializationStatus: 'pending' | 'indexing' | 'ready' | 'error' = 'pending';
   private indexingProgress: { indexed: number; total: number } = { indexed: 0, total: 0 };
 
-  constructor(config: MemoryLayerConfig) {
+  constructor(config: NeuronLayerConfig) {
     this.config = config;
 
     // Ensure data directory exists
@@ -272,7 +272,7 @@ export class MemoryLayerEngine {
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
-    console.error(`Initializing MemoryLayer for: ${this.config.projectPath}`);
+    console.error(`Initializing NeuronLayer for: ${this.config.projectPath}`);
 
     try {
       // Perform initial indexing
@@ -314,7 +314,7 @@ export class MemoryLayerEngine {
 
       this.initialized = true;
       this.initializationStatus = 'ready';
-      console.error('MemoryLayer initialized');
+      console.error('NeuronLayer initialized');
     } catch (error) {
       this.initializationStatus = 'error';
       throw error;
@@ -1636,7 +1636,7 @@ export class MemoryLayerEngine {
   }
 
   shutdown(): void {
-    console.error('Shutting down MemoryLayer...');
+    console.error('Shutting down NeuronLayer...');
     this.indexer.stopWatching();
     this.activityGate.shutdown();
     this.tier1.save();
