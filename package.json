@@ -1,7 +1,7 @@
 {
   "name": "neuronlayer",
-  "version": "0.1.7",
-  "description": "Persistent memory layer for AI coding assistants - MCP server that makes AI truly understand your codebase",
+  "version": "0.1.8",
+  "description": "Code intelligence layer disguised as memory - MCP server giving AI persistent understanding of your codebase",
   "type": "module",
   "main": "dist/index.js",
   "bin": {

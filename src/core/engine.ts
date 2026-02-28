@@ -69,13 +69,19 @@ export class MemoryLayerEngine {
     }
 
     // Initialize database (with migration from old name)
-    const dbPath = join(config.dataDir, 'neuronlayer.db');
+    let dbPath = join(config.dataDir, 'neuronlayer.db');
     const oldDbPath = join(config.dataDir, 'memorylayer.db');
 
     // Migrate from old database name if it exists
     if (!existsSync(dbPath) && existsSync(oldDbPath)) {
-      console.error('Migrating database from memorylayer.db to neuronlayer.db...');
-      renameSync(oldDbPath, dbPath);
+      try {
+        console.error('Migrating database from memorylayer.db to neuronlayer.db...');
+        renameSync(oldDbPath, dbPath);
+      } catch (err) {
+        // If rename fails (file locked), use the old database path
+        console.error('Migration skipped (file in use), using existing database');
+        dbPath = oldDbPath;
+      }
     }
 
     this.db = initializeDatabase(dbPath);
