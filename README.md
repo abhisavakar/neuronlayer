@@ -1,6 +1,8 @@
 # NeuronLayer
 
-**Persistent memory layer for AI coding assistants. Your codebase documents itself.**
+**Code intelligence layer disguised as memory.**
+
+NeuronLayer isn't another memory tool. It's a code-intelligence layer that gives AI assistants deep understanding of your codebase - understanding that persists across sessions.
 
 [![npm version](https://img.shields.io/npm/v/neuronlayer.svg)](https://www.npmjs.com/package/neuronlayer)
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -9,23 +11,42 @@
 
 ---
 
+## What Makes NeuronLayer Different
+
+Most "memory tools" for AI are just note-taking with embeddings. NeuronLayer does something fundamentally different:
+
+| Memory Tools | NeuronLayer |
+|--------------|-------------|
+| Store text, retrieve by similarity | **Parse code structure** (AST-based) |
+| Keyword/embedding search | **Understand dependencies** (what imports what) |
+| Tag-based organization | **Transitive impact analysis** (change X → affects Y, Z) |
+| Session notes | **Circular dependency detection** |
+| | **Test coverage mapping** (which tests cover which functions) |
+| | **Predict test failures** before you run them |
+| | **Conflict detection** with recorded decisions |
+
+**The AI thinks it's using memory tools. It's actually getting code intelligence.**
+
+---
+
 ## The Problem
 
-AI coding assistants are powerful but forgetful:
+AI coding assistants are powerful but blind:
 
-- Context collapse - AI forgets mid-session
-- No persistent memory - every session starts fresh
-- Code duplication - AI doesn't know what already exists
-- Test breakage - AI suggestions break existing tests
+- **No structural understanding** - AI doesn't know your dependency graph
+- **No impact awareness** - "changing this file breaks 12 others"
+- **No test knowledge** - AI suggestions break tests it doesn't know exist
+- **No persistent decisions** - architectural choices forgotten each session
 
 ## The Solution
 
-NeuronLayer gives AI assistants persistent, intelligent memory:
+NeuronLayer gives AI assistants **persistent code intelligence**:
 
-- **Decisions persist** - Architectural decisions survive across sessions
-- **Patterns learned** - AI knows your coding conventions
-- **Context preserved** - Smart compaction prevents forgetting
-- **Tests respected** - AI knows what tests exist
+- **Dependency graph** - knows what imports what, transitively
+- **Impact analysis** - "changing auth.ts affects 8 files and 4 tests"
+- **Test awareness** - indexes tests, predicts failures, suggests updates
+- **Decision memory** - architectural decisions survive across sessions
+- **Circular dependency detection** - finds import cycles automatically
 
 ---
 
@@ -35,9 +56,9 @@ NeuronLayer gives AI assistants persistent, intelligent memory:
 |------|-----------|----------------|
 | Claude Desktop | Yes | `neuronlayer init` |
 | Claude Code (CLI) | Yes | `neuronlayer init` |
+| Cursor | Yes | Via MCP support |
 | OpenCode | Yes | `neuronlayer init` |
 | VS Code + Continue | Yes | Manual config |
-| Cursor | Not yet | No MCP support |
 | Any MCP Client | Yes | Manual config |
 
 ---
@@ -59,21 +80,74 @@ neuronlayer init
 
 That's it! This automatically:
 1. Registers your project
-2. Configures Claude Desktop
-3. Configures OpenCode
-4. Configures Claude Code
+2. Configures Claude Desktop, Claude Code, and OpenCode
+3. Indexes your codebase (AST parsing, dependency graph, tests)
 
 Just restart your AI tool and NeuronLayer is active.
 
 ---
 
+## Code Intelligence Features
+
+### Dependency Graph
+
+NeuronLayer builds a complete dependency graph of your codebase:
+
+```
+src/auth/login.ts
+├── imports: ./utils, ../api/client, ./types
+└── imported by: src/pages/auth.tsx, src/hooks/useAuth.ts
+```
+
+### Impact Analysis
+
+Before making changes, the AI can ask "what's the blast radius?"
+
+```
+get_impact_analysis({ file: "src/auth/login.ts" })
+
+→ Risk Level: MEDIUM
+→ Direct dependents: 3 files
+→ Indirect dependents: 5 files (2 hops)
+→ Affected tests: 4 tests
+→ Circular dependencies: none
+```
+
+### Circular Dependency Detection
+
+Automatically finds import cycles that cause subtle bugs:
+
+```
+find_circular_deps()
+
+→ Found 2 circular dependency chains:
+  1. src/a.ts → src/b.ts → src/c.ts → src/a.ts
+  2. src/utils/index.ts → src/utils/helpers.ts → src/utils/index.ts
+```
+
+### Test Awareness
+
+NeuronLayer indexes your tests and knows:
+- Which functions each test covers
+- Which tests would be affected by a change
+- Suggests test updates when code changes
+
+### Real-Time Impact Warnings
+
+When you save a file, NeuronLayer tells you what's affected:
+
+```
+[Impact] src/auth/login.ts changed → 3 file(s) may be affected
+  → src/pages/auth.tsx
+  → src/hooks/useAuth.ts
+  → src/components/LoginForm.tsx
+```
+
+---
+
 ## MCP Tools
 
-NeuronLayer exposes **14 MCP tools** organized into 6 gateway tools and 8 standalone tools.
-
 ### Gateway Tools (Smart Routing)
-
-These are the main tools. Each routes to multiple internal capabilities based on input:
 
 | Tool | Purpose |
 |------|---------|
@@ -84,80 +158,58 @@ These are the main tools. Each routes to multiple internal capabilities based on
 | `memory_ghost` | Proactive intelligence: conflicts, "you solved this before", session resume |
 | `memory_verify` | Pre-commit check: validate imports, security, dependencies |
 
-### Standalone Tools
+### Code Intelligence Tools
 
 | Tool | Purpose |
 |------|---------|
-| `memory_refresh` | **NEW** Trigger manual refresh after external changes (git pull) |
-| `get_refresh_status` | **NEW** Check idle tasks, activity status, git state |
+| `get_impact_analysis` | **Analyze blast radius** - all affected files, tests, risk level |
+| `find_circular_deps` | **Detect import cycles** - find circular dependencies |
+| `get_dependencies` | Get imports and importers for a file |
+| `get_file_summary` | Compressed file overview (10x smaller than full content) |
+
+### Utility Tools
+
+| Tool | Purpose |
+|------|---------|
+| `memory_refresh` | Trigger manual refresh after external changes |
 | `switch_project` | Switch between registered projects |
-| `switch_feature_context` | Resume work on a previous feature |
 | `trigger_compaction` | Reduce memory when context is full |
-| `update_decision_status` | Mark decisions as deprecated/superseded |
 | `export_decisions_to_adr` | Export decisions as ADR markdown files |
-| `discover_projects` | Find git repos on the system |
+
+---
+
+## Language Support
+
+| Language | Parsing | Dependency Tracking |
+|----------|---------|---------------------|
+| TypeScript/JavaScript | Full AST | Yes |
+| Python | Full AST | Yes |
+| Go | Regex-based | Yes |
+| Rust | Regex-based | Yes |
+| Java | Regex-based | Yes |
 
 ---
 
 ## Features
 
-### What's Implemented
-
 | Feature | Status | Description |
 |---------|--------|-------------|
+| **Dependency Graph** | Working | Tracks imports, exports, transitive dependencies |
+| **Impact Analysis** | Working | Shows blast radius of changes |
+| **Circular Detection** | Working | Finds import cycles automatically |
+| **Test Indexing** | Working | Indexes tests, maps coverage, predicts failures |
 | **Semantic Search** | Working | Find code by meaning using embeddings |
 | **Decision Recording** | Working | Log architectural decisions with context |
 | **Pattern Library** | Working | Learn and validate coding patterns |
-| **File Indexing** | Working | AST-based symbol extraction |
+| **AST Parsing** | Working | Extract symbols, functions, classes, imports |
 | **Context Compaction** | Working | Smart summarization when context fills |
-| **Test Indexing** | Working | Index tests, predict failures |
 | **Git Integration** | Working | Track changes, correlate with decisions |
-| **Multi-Project** | Working | Switch between projects |
-| **Intelligent Refresh** | **NEW** | Smart sync with cheap pre-checks |
-
-### Intelligent Refresh System (v0.1.4)
-
-NeuronLayer now includes a tiered refresh architecture that eliminates wasteful polling:
-
-```
-TIER 1: REAL-TIME
-├── File changes → Chokidar watcher → immediate invalidation
-├── User queries → immediate tracking
-└── File access → immediate hot cache update
-
-TIER 2: ON-DEMAND WITH CHEAP PRE-CHECK
-├── Git sync → check HEAD first (5ms), only sync if changed
-├── Summaries → check lastModified before regenerating
-└── Bug diagnosis → sync git first if HEAD changed
-
-TIER 3: IDLE-TIME MAINTENANCE
-├── When user idle > 30s AND git changed → sync git
-├── When idle > 5min since last update → update importance scores
-└── One task at a time, non-blocking
-
-TIER 4: SESSION-BASED
-├── Engine init → full git sync
-└── Shutdown → persist state
-```
-
-**Key optimization**: Instead of running expensive `git log` operations (~100ms+), we cache the HEAD commit and only sync when it changes (~5ms check).
-
-### Modules
-
-```
-src/core/
-├── refresh/             # NEW: Intelligent refresh system
-├── living-docs/         # Architecture & changelog generation
-├── context-rot/         # Context health & compaction
-├── confidence/          # Source tracking & conflict detection
-├── change-intelligence/ # Git tracking & fix suggestions
-├── architecture/        # Pattern library & validation
-└── test-awareness/      # Test indexing & failure prediction
-```
+| **Multi-Project** | Working | Switch between projects seamlessly |
+| **Impact Warnings** | Working | Real-time notifications on file changes |
 
 ---
 
-## How It Works
+## Architecture
 
 ```
 +-------------------------------------------------------------+
@@ -165,25 +217,43 @@ src/core/
 +-------------------------------------------------------------+
 |                                                              |
 |  +--------------+    +--------------+    +--------------+   |
-|  |   AI Tool    |--->|  MCP Server  |--->|   Memory     |   |
-|  | Claude/Open  |    |   (stdio)    |    |   Engine     |   |
+|  |   AI Tool    |--->|  MCP Server  |--->|   Code       |   |
+|  | Claude/etc   |    |   (stdio)    |    | Intelligence |   |
 |  +--------------+    +--------------+    +--------------+   |
 |                                                    |         |
 |                            +--------------------+--+----+   |
 |                            |                    v       |   |
 |  +--------------+    +-----+----+    +------------------+|  |
 |  |  Your Code   |--->| Indexer  |--->|  SQLite + Vec DB ||  |
-|  |  (watched)   |    | (AST/Git)|    |  (embeddings)    ||  |
+|  |  (watched)   |    | AST/Deps |    |  + Dep Graph     ||  |
 |  +--------------+    +----------+    +------------------+|  |
 |                                                          |  |
 +-------------------------------------------------------------+
 ```
 
-### Memory Tiers
+### Core Modules
 
-1. **Tier 1** - Hot cache for active files (instant)
-2. **Tier 2** - SQLite for decisions, patterns, history (fast)
-3. **Tier 3** - Vector embeddings for semantic search (smart)
+```
+src/core/
+├── engine.ts            # Main engine, coordinates everything
+├── ghost-mode.ts        # Proactive conflict detection
+├── test-awareness/      # Test indexing & failure prediction
+├── change-intelligence/ # Git tracking & impact analysis
+├── architecture/        # Pattern library & validation
+├── context-rot/         # Context health & compaction
+├── living-docs/         # Architecture & changelog generation
+└── refresh/             # Intelligent refresh system
+
+src/storage/
+├── tier1.ts             # Hot cache (instant)
+├── tier2.ts             # SQLite + dependency graph (fast)
+└── tier3.ts             # Vector embeddings (semantic)
+
+src/indexing/
+├── ast.ts               # AST parsing (TS/JS/Python/Go/Rust/Java)
+├── indexer.ts           # File indexing + dependency building
+└── embeddings.ts        # Vector embedding generation
+```
 
 ---
 
@@ -236,21 +306,6 @@ Config locations:
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Linux**: `~/.config/claude/claude_desktop_config.json`
 
-### OpenCode
-
-Add to `~/.opencode/config.json`:
-
-```json
-{
-  "mcpServers": {
-    "neuronlayer": {
-      "command": "npx",
-      "args": ["-y", "neuronlayer", "--project", "/path/to/your/project"]
-    }
-  }
-}
-```
-
 ---
 
 ## Data Storage
@@ -261,34 +316,36 @@ Each project has isolated data:
 ~/.memorylayer/
 ├── projects/
 │   ├── project-a-abc123/
-│   │   ├── memorylayer.db    # SQLite database
-│   │   └── embeddings/       # Vector index
+│   │   ├── neuronlayer.db   # SQLite + dependency graph
+│   │   └── embeddings/      # Vector index
 │   └── project-b-def456/
 │       └── ...
-└── registry.json             # Project registry
+└── registry.json            # Project registry
 ```
 
 ---
 
-## NeuronLayer vs grep
+## NeuronLayer vs Other Tools
+
+### vs grep/ripgrep
 
 NeuronLayer **doesn't compete with grep** - Claude already has grep. They serve different purposes:
 
 | grep does | NeuronLayer does |
 |-----------|------------------|
-| Text matching | **Semantic search** ("how does auth work here?") |
-| Regex patterns | **Persistent memory** (decisions survive across sessions) |
-| Fast file search | **Architectural awareness** (knows module relationships) |
-| | **Pattern learning** (learns your coding conventions) |
-| | **Context preservation** (survives conversation resets) |
+| Text matching | **Semantic search** ("how does auth work?") |
+| Regex patterns | **Dependency analysis** (what depends on this?) |
+| Fast file search | **Impact prediction** (what breaks if I change this?) |
+| | **Test awareness** (which tests cover this function?) |
 
-**Real-world indexing** (Express.js - 141 files, 21k LOC):
-- First-time indexing: ~28 seconds (one-time for new codebases)
-- Subsequent sessions: Only changed files re-indexed (content hash check)
-- Index persists in SQLite between sessions
+### vs Simple Memory Tools
 
-**Use grep for:** "find all files containing `router`"
-**Use NeuronLayer for:** "how does the routing system work?" or "what decisions were made about authentication?"
+| Memory tools do | NeuronLayer does |
+|-----------------|------------------|
+| Store notes | **Parse code structure** |
+| Keyword search | **Graph traversal** |
+| Tag organization | **Circular dependency detection** |
+| | **Test failure prediction** |
 
 ---
 
@@ -299,7 +356,8 @@ NeuronLayer is **100% local**:
 - All data stored on your machine
 - No cloud services
 - No telemetry
-- Works offline
+- No LLM calls (pure code analysis)
+- Works completely offline
 
 ---
 

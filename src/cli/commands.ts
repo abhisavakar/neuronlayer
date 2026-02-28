@@ -159,13 +159,19 @@ export function exportDecisions(
     };
   }
 
-  // Open database and get decisions
-  const dbPath = join(projectInfo.dataDir, 'memorylayer.db');
+  // Open database and get decisions (check both new and old names)
+  let dbPath = join(projectInfo.dataDir, 'neuronlayer.db');
   if (!existsSync(dbPath)) {
-    return {
-      success: false,
-      message: `Project database not found. Has the project been indexed?`
-    };
+    // Fall back to old name for backwards compatibility
+    const oldDbPath = join(projectInfo.dataDir, 'memorylayer.db');
+    if (existsSync(oldDbPath)) {
+      dbPath = oldDbPath;
+    } else {
+      return {
+        success: false,
+        message: `Project database not found. Has the project been indexed?`
+      };
+    }
   }
 
   const db = initializeDatabase(dbPath);

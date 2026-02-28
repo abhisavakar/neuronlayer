@@ -80,6 +80,30 @@ const LANGUAGE_CONFIGS: Record<string, LanguageConfig> = {
         (import_from_statement) @import
       `
     }
+  },
+  go: {
+    wasmFile: 'tree-sitter-go.wasm',
+    extensions: ['.go'],
+    queries: {
+      functions: `(function_declaration name: (identifier) @name) @func`,
+      classes: `(type_declaration (type_spec name: (type_identifier) @name type: (struct_type))) @class`
+    }
+  },
+  rust: {
+    wasmFile: 'tree-sitter-rust.wasm',
+    extensions: ['.rs'],
+    queries: {
+      functions: `(function_item name: (identifier) @name) @func`,
+      classes: `(struct_item name: (type_identifier) @name) @class`
+    }
+  },
+  java: {
+    wasmFile: 'tree-sitter-java.wasm',
+    extensions: ['.java'],
+    queries: {
+      functions: `(method_declaration name: (identifier) @name) @func`,
+      classes: `(class_declaration name: (identifier) @name) @class`
+    }
   }
 };
 
@@ -172,6 +196,12 @@ export class ASTParser {
       this.parseTypeScriptJS(filePath, content, lines, symbols, imports, exports);
     } else if (lang === 'python') {
       this.parsePython(filePath, content, lines, symbols, imports, exports);
+    } else if (lang === 'go') {
+      this.parseGo(filePath, content, lines, symbols, imports, exports);
+    } else if (lang === 'rust') {
+      this.parseRust(filePath, content, lines, symbols, imports, exports);
+    } else if (lang === 'java') {
+      this.parseJava(filePath, content, lines, symbols, imports, exports);
     }
 
     return { symbols, imports, exports };
@@ -187,36 +217,59 @@ export class ASTParser {
   ): void {
     // Patterns for TypeScript/JavaScript
     const patterns = {
-      // Functions: function name(), const name = () =>, const name = function()
-      function: /^(?:export\s+)?(?:async\s+)?function\s+(\w+)/,
-      arrowFunc: /^(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?(?:\([^)]*\)|[^=])\s*=>/,
+      // Functions: function name(), export default function name(), const name = () =>
+      function: /^(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+(\w+)/,
+      // Arrow functions: handles type annotations and destructured params
+      arrowFunc: /^(?:export\s+)?(?:const|let|var)\s+(\w+)\s*(?::\s*[^=]+)?\s*=\s*(?:async\s+)?(?:\([^)]*\)|[a-zA-Z_]\w*)\s*(?::\s*[^=]+)?\s*=>/,
       // Classes
-      class: /^(?:export\s+)?(?:abstract\s+)?class\s+(\w+)/,
+      class: /^(?:export\s+)?(?:default\s+)?(?:abstract\s+)?class\s+(\w+)/,
       // Interfaces (TS only)
       interface: /^(?:export\s+)?interface\s+(\w+)/,
       // Types (TS only)
-      type: /^(?:export\s+)?type\s+(\w+)\s*=/,
-      // Imports
-      import: /^import\s+(?:(\w+)(?:\s*,\s*)?)?(?:\{([^}]+)\})?\s*from\s*['"]([^'"]+)['"]/,
-      importAll: /^import\s+\*\s+as\s+(\w+)\s+from\s*['"]([^'"]+)['"]/,
+      type: /^(?:export\s+)?type\s+(\w+)\s*(?:<[^>]*>)?\s*=/,
+      // Imports - supports 'import type'
+      import: /^import\s+(?:type\s+)?(?:(\w+)(?:\s*,\s*)?)?(?:\{([^}]+)\})?\s*from\s*['"]([^'"]+)['"]/,
+      importAll: /^import\s+(?:type\s+)?\*\s+as\s+(\w+)\s+from\s*['"]([^'"]+)['"]/,
       importSideEffect: /^import\s*['"]([^'"]+)['"]/,
       // Exports
-      exportNamed: /^export\s+\{([^}]+)\}/,
+      exportNamed: /^export\s+(?:type\s+)?\{([^}]+)\}/,
       exportDefault: /^export\s+default\s+(?:class|function|const|let|var)?\s*(\w+)?/,
       exportDirect: /^export\s+(?:const|let|var|function|class|interface|type|enum|async\s+function)\s+(\w+)/,
       // Enums (TS)
       enum: /^(?:export\s+)?(?:const\s+)?enum\s+(\w+)/,
-      // Methods inside classes (simplified)
-      method: /^\s+(?:async\s+)?(?:static\s+)?(?:private\s+|public\s+|protected\s+)?(\w+)\s*\([^)]*\)\s*[:{]/,
+      // Methods inside classes - handles generics, readonly, and all modifiers
+      method: /^\s+(?:async\s+)?(?:static\s+)?(?:readonly\s+)?(?:private\s+|public\s+|protected\s+)?(?:get\s+|set\s+)?(\w+)\s*(?:<[^>]+>)?\s*\(/,
     };
 
     let currentClass: { name: string; startLine: number } | null = null;
     let braceDepth = 0;
+    let inBlockComment = false;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i] || '';
       const trimmed = line.trim();
       const lineNum = i + 1;
+
+      // Track block comments properly
+      if (inBlockComment) {
+        if (trimmed.includes('*/')) {
+          inBlockComment = false;
+        }
+        continue;
+      }
+
+      // Skip single-line comments
+      if (trimmed.startsWith('//')) {
+        continue;
+      }
+
+      // Handle block comment start
+      if (trimmed.startsWith('/*')) {
+        if (!trimmed.includes('*/')) {
+          inBlockComment = true;
+        }
+        continue;
+      }
 
       // Track brace depth for class scope
       braceDepth += (line.match(/\{/g) || []).length;
@@ -229,11 +282,6 @@ export class ASTParser {
           existingSymbol.lineEnd = lineNum;
         }
         currentClass = null;
-      }
-
-      // Skip comments
-      if (trimmed.startsWith('//') || trimmed.startsWith('/*') || trimmed.startsWith('*')) {
-        continue;
       }
 
       // Functions
@@ -507,6 +555,287 @@ export class ASTParser {
           isNamespace: imported.includes('*'),
           lineNumber: lineNum
         });
+      }
+    }
+  }
+
+  private parseGo(
+    filePath: string,
+    content: string,
+    lines: string[],
+    symbols: CodeSymbol[],
+    imports: Import[],
+    exports: Export[]
+  ): void {
+    let inImportBlock = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i] || '';
+      const trimmed = line.trim();
+      const lineNum = i + 1;
+
+      // Skip comments
+      if (trimmed.startsWith('//')) continue;
+
+      // Handle import blocks
+      if (trimmed === 'import (') {
+        inImportBlock = true;
+        continue;
+      }
+      if (inImportBlock && trimmed === ')') {
+        inImportBlock = false;
+        continue;
+      }
+
+      // Single import or import block item
+      const importMatch = inImportBlock
+        ? trimmed.match(/^(?:(\w+)\s+)?"([^"]+)"/)
+        : trimmed.match(/^import\s+(?:(\w+)\s+)?"([^"]+)"/);
+      if (importMatch) {
+        const alias = importMatch[1];
+        const path = importMatch[2] || '';
+        const pkg = alias || path.split('/').pop() || '';
+        imports.push({
+          fileId: 0,
+          filePath,
+          importedFrom: path,
+          importedSymbols: [pkg],
+          isDefault: false,
+          isNamespace: false,
+          lineNumber: lineNum
+        });
+        continue;
+      }
+
+      // Functions and methods
+      const funcMatch = trimmed.match(/^func\s+(?:\((\w+)\s+\*?(\w+)\)\s+)?(\w+)\s*\(/);
+      if (funcMatch) {
+        const receiver = funcMatch[2];
+        const name = receiver ? `${receiver}.${funcMatch[3]}` : (funcMatch[3] || '');
+        symbols.push({
+          fileId: 0,
+          filePath,
+          kind: receiver ? 'method' : 'function',
+          name,
+          lineStart: lineNum,
+          lineEnd: this.findBlockEnd(lines, i),
+          exported: /^[A-Z]/.test(funcMatch[3] || ''),
+          signature: trimmed.split('{')[0]?.trim()
+        });
+        continue;
+      }
+
+      // Structs
+      const structMatch = trimmed.match(/^type\s+(\w+)\s+struct\s*\{?/);
+      if (structMatch) {
+        symbols.push({
+          fileId: 0,
+          filePath,
+          kind: 'class',
+          name: structMatch[1] || '',
+          lineStart: lineNum,
+          lineEnd: this.findBlockEnd(lines, i),
+          exported: /^[A-Z]/.test(structMatch[1] || '')
+        });
+        continue;
+      }
+
+      // Interfaces
+      const ifaceMatch = trimmed.match(/^type\s+(\w+)\s+interface\s*\{?/);
+      if (ifaceMatch) {
+        symbols.push({
+          fileId: 0,
+          filePath,
+          kind: 'interface',
+          name: ifaceMatch[1] || '',
+          lineStart: lineNum,
+          lineEnd: this.findBlockEnd(lines, i),
+          exported: /^[A-Z]/.test(ifaceMatch[1] || '')
+        });
+      }
+    }
+  }
+
+  private parseRust(
+    filePath: string,
+    content: string,
+    lines: string[],
+    symbols: CodeSymbol[],
+    imports: Import[],
+    exports: Export[]
+  ): void {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i] || '';
+      const trimmed = line.trim();
+      const lineNum = i + 1;
+
+      // Skip comments
+      if (trimmed.startsWith('//')) continue;
+
+      // Functions
+      const fnMatch = trimmed.match(/^(?:pub\s+)?(?:async\s+)?fn\s+(\w+)/);
+      if (fnMatch) {
+        symbols.push({
+          fileId: 0,
+          filePath,
+          kind: 'function',
+          name: fnMatch[1] || '',
+          lineStart: lineNum,
+          lineEnd: this.findBlockEnd(lines, i),
+          exported: trimmed.startsWith('pub'),
+          signature: trimmed.split('{')[0]?.trim()
+        });
+        continue;
+      }
+
+      // Structs
+      const structMatch = trimmed.match(/^(?:pub\s+)?struct\s+(\w+)/);
+      if (structMatch) {
+        symbols.push({
+          fileId: 0,
+          filePath,
+          kind: 'class',
+          name: structMatch[1] || '',
+          lineStart: lineNum,
+          lineEnd: this.findBlockEnd(lines, i),
+          exported: trimmed.startsWith('pub')
+        });
+        continue;
+      }
+
+      // Enums
+      const enumMatch = trimmed.match(/^(?:pub\s+)?enum\s+(\w+)/);
+      if (enumMatch) {
+        symbols.push({
+          fileId: 0,
+          filePath,
+          kind: 'enum',
+          name: enumMatch[1] || '',
+          lineStart: lineNum,
+          lineEnd: this.findBlockEnd(lines, i),
+          exported: trimmed.startsWith('pub')
+        });
+        continue;
+      }
+
+      // Traits (similar to interfaces)
+      const traitMatch = trimmed.match(/^(?:pub\s+)?trait\s+(\w+)/);
+      if (traitMatch) {
+        symbols.push({
+          fileId: 0,
+          filePath,
+          kind: 'interface',
+          name: traitMatch[1] || '',
+          lineStart: lineNum,
+          lineEnd: this.findBlockEnd(lines, i),
+          exported: trimmed.startsWith('pub')
+        });
+        continue;
+      }
+
+      // Impl blocks
+      const implMatch = trimmed.match(/^impl\s+(?:<[^>]+>\s+)?(?:(\w+)\s+for\s+)?(\w+)/);
+      if (implMatch) {
+        const traitName = implMatch[1];
+        const typeName = implMatch[2] || '';
+        const name = traitName ? `${traitName} for ${typeName}` : typeName;
+        symbols.push({
+          fileId: 0,
+          filePath,
+          kind: 'class',
+          name: `impl ${name}`,
+          lineStart: lineNum,
+          lineEnd: this.findBlockEnd(lines, i),
+          exported: false
+        });
+        continue;
+      }
+
+      // use statements
+      const useMatch = trimmed.match(/^(?:pub\s+)?use\s+(.+);/);
+      if (useMatch) {
+        const path = (useMatch[1] || '').replace(/::/g, '/');
+        imports.push({
+          fileId: 0,
+          filePath,
+          importedFrom: path,
+          importedSymbols: [path.split('/').pop()?.replace(/[{}]/g, '') || ''],
+          isDefault: false,
+          isNamespace: path.includes('*'),
+          lineNumber: lineNum
+        });
+      }
+    }
+  }
+
+  private parseJava(
+    filePath: string,
+    content: string,
+    lines: string[],
+    symbols: CodeSymbol[],
+    imports: Import[],
+    exports: Export[]
+  ): void {
+    let currentClass: string | null = null;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i] || '';
+      const trimmed = line.trim();
+      const lineNum = i + 1;
+
+      // Skip comments
+      if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) continue;
+
+      // Imports
+      const importMatch = trimmed.match(/^import\s+(?:static\s+)?([^;]+);/);
+      if (importMatch) {
+        const path = importMatch[1] || '';
+        imports.push({
+          fileId: 0,
+          filePath,
+          importedFrom: path,
+          importedSymbols: [path.split('.').pop() || ''],
+          isDefault: false,
+          isNamespace: path.endsWith('*'),
+          lineNumber: lineNum
+        });
+        continue;
+      }
+
+      // Classes and interfaces
+      const classMatch = trimmed.match(/^(?:public\s+|private\s+|protected\s+)?(?:abstract\s+)?(?:final\s+)?(class|interface|enum)\s+(\w+)/);
+      if (classMatch) {
+        currentClass = classMatch[2] || '';
+        symbols.push({
+          fileId: 0,
+          filePath,
+          kind: classMatch[1] === 'interface' ? 'interface' : classMatch[1] === 'enum' ? 'enum' : 'class',
+          name: currentClass,
+          lineStart: lineNum,
+          lineEnd: this.findBlockEnd(lines, i),
+          exported: trimmed.includes('public')
+        });
+        continue;
+      }
+
+      // Methods
+      const methodMatch = trimmed.match(/^(?:public\s+|private\s+|protected\s+)?(?:static\s+)?(?:final\s+)?(?:synchronized\s+)?(?:abstract\s+)?(?:<[^>]+>\s+)?(\w+(?:<[^>]+>)?)\s+(\w+)\s*\(/);
+      if (methodMatch && currentClass && !['if', 'for', 'while', 'switch', 'catch', 'class', 'interface', 'enum'].includes(methodMatch[2] || '')) {
+        const returnType = methodMatch[1];
+        const methodName = methodMatch[2] || '';
+        // Skip constructors (name matches class name)
+        if (methodName !== currentClass) {
+          symbols.push({
+            fileId: 0,
+            filePath,
+            kind: 'method',
+            name: `${currentClass}.${methodName}`,
+            lineStart: lineNum,
+            lineEnd: this.findBlockEnd(lines, i),
+            exported: trimmed.includes('public'),
+            signature: `${returnType} ${methodName}(...)`
+          });
+        }
       }
     }
   }

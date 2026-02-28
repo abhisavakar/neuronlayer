@@ -1,5 +1,5 @@
 import { join, basename } from 'path';
-import { existsSync, mkdirSync, readFileSync, statSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, statSync, renameSync } from 'fs';
 import { initializeDatabase, closeDatabase } from '../storage/database.js';
 import { Tier1Storage } from '../storage/tier1.js';
 import { Tier2Storage } from '../storage/tier2.js';
@@ -68,8 +68,16 @@ export class MemoryLayerEngine {
       mkdirSync(config.dataDir, { recursive: true });
     }
 
-    // Initialize database
-    const dbPath = join(config.dataDir, 'memorylayer.db');
+    // Initialize database (with migration from old name)
+    const dbPath = join(config.dataDir, 'neuronlayer.db');
+    const oldDbPath = join(config.dataDir, 'memorylayer.db');
+
+    // Migrate from old database name if it exists
+    if (!existsSync(dbPath) && existsSync(oldDbPath)) {
+      console.error('Migrating database from memorylayer.db to neuronlayer.db...');
+      renameSync(oldDbPath, dbPath);
+    }
+
     this.db = initializeDatabase(dbPath);
 
     // Initialize storage tiers
@@ -214,6 +222,16 @@ export class MemoryLayerEngine {
       this.updateProjectStats();
       // Extract decisions from git and comments
       this.extractDecisions().catch(err => console.error('Decision extraction error:', err));
+
+      // Index tests after code indexing is complete
+      try {
+        const testResult = this.testAwareness.refreshIndex();
+        if (testResult.testsIndexed > 0) {
+          console.error(`Test index: ${testResult.testsIndexed} tests (${testResult.framework})`);
+        }
+      } catch (err) {
+        console.error('Test indexing error:', err);
+      }
     });
 
     this.indexer.on('fileIndexed', (path) => {
@@ -222,6 +240,19 @@ export class MemoryLayerEngine {
 
       // Invalidate cached summary when file changes (event-driven, not polling)
       this.summarizer.invalidateSummaryByPath(path);
+    });
+
+    this.indexer.on('fileImpact', (impact: { file: string; affectedFiles: string[]; affectedCount: number }) => {
+      // Log impact warning for file changes
+      if (impact.affectedCount > 0) {
+        console.error(`[Impact] ${impact.file} changed → ${impact.affectedCount} file(s) may be affected`);
+        if (impact.affectedCount <= 5) {
+          impact.affectedFiles.forEach(f => console.error(`  → ${f}`));
+        } else {
+          impact.affectedFiles.slice(0, 3).forEach(f => console.error(`  → ${f}`));
+          console.error(`  ... and ${impact.affectedCount - 3} more`);
+        }
+      }
     });
 
     this.indexer.on('error', (error) => {
@@ -725,6 +756,16 @@ export class MemoryLayerEngine {
     }));
 
     return { imports, importedBy, symbols };
+  }
+
+  // Find circular dependencies in the project
+  findCircularDependencies(): Array<string[]> {
+    return this.tier2.findCircularDependencies();
+  }
+
+  // Get transitive dependents (all files affected by changing a file)
+  getTransitiveDependents(filePath: string, maxDepth: number = 3): Array<{ file: string; depth: number; imports: string[] }> {
+    return this.tier2.getTransitiveDependents(filePath, maxDepth);
   }
 
   // Phase 2: Get symbol count

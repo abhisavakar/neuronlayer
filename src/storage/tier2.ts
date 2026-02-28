@@ -664,13 +664,23 @@ export class Tier2Storage {
   }
 
   getFilesImporting(modulePath: string): Array<{ fileId: number; filePath: string }> {
+    // Use exact matching with common import path patterns to avoid false positives
+    // e.g., "user" should not match "super-user-service"
     const stmt = this.db.prepare(`
       SELECT DISTINCT i.file_id as fileId, f.path as filePath
       FROM imports i
       JOIN files f ON i.file_id = f.id
-      WHERE i.imported_from LIKE ?
+      WHERE i.imported_from = ?
+         OR i.imported_from LIKE ?
+         OR i.imported_from LIKE ?
+         OR i.imported_from LIKE ?
     `);
-    return stmt.all(`%${modulePath}%`) as Array<{ fileId: number; filePath: string }>;
+    return stmt.all(
+      modulePath,
+      `%/${modulePath}`,      // ends with /modulePath
+      `./${modulePath}`,      // relative ./modulePath
+      `../${modulePath}`      // parent ../modulePath
+    ) as Array<{ fileId: number; filePath: string }>;
   }
 
   // Phase 2: Export operations
@@ -742,7 +752,6 @@ export class Tier2Storage {
 
   getFileDependents(filePath: string): Array<{ file: string; imports: string[] }> {
     // Find files that import this file
-    // This is a simplified version - in reality we'd need to resolve module paths
     const fileName = filePath.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, '') || '';
     const importers = this.getFilesImporting(fileName);
 
@@ -750,7 +759,10 @@ export class Tier2Storage {
 
     for (const importer of importers) {
       const imports = this.getImportsByFile(importer.fileId);
-      const relevantImport = imports.find(i => i.importedFrom.includes(fileName));
+      const relevantImport = imports.find(i => {
+        const importedName = i.importedFrom.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, '') || '';
+        return importedName === fileName || i.importedFrom.endsWith(`/${fileName}`) || i.importedFrom.endsWith(`./${fileName}`);
+      });
       if (relevantImport) {
         deps.push({
           file: importer.filePath,
@@ -760,5 +772,201 @@ export class Tier2Storage {
     }
 
     return deps;
+  }
+
+  /**
+   * Get ALL files affected by a change, walking the dependency graph.
+   * depth=1 is direct importers only. depth=3 catches ripple effects.
+   */
+  getTransitiveDependents(
+    filePath: string,
+    maxDepth: number = 3
+  ): Array<{ file: string; depth: number; imports: string[] }> {
+    const visited = new Map<string, { depth: number; imports: string[] }>();
+    const queue: Array<{ path: string; depth: number }> = [{ path: filePath, depth: 0 }];
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      if (current.depth >= maxDepth) continue;
+      if (visited.has(current.path) && visited.get(current.path)!.depth <= current.depth) continue;
+
+      const dependents = this.getFileDependents(current.path);
+      for (const dep of dependents) {
+        const existingDepth = visited.get(dep.file)?.depth ?? Infinity;
+        const newDepth = current.depth + 1;
+
+        if (newDepth < existingDepth) {
+          visited.set(dep.file, { depth: newDepth, imports: dep.imports });
+          queue.push({ path: dep.file, depth: newDepth });
+        }
+      }
+    }
+
+    visited.delete(filePath); // don't include the original file
+    return Array.from(visited.entries())
+      .map(([file, info]) => ({ file, ...info }))
+      .sort((a, b) => a.depth - b.depth);
+  }
+
+  /**
+   * Get the full import graph as an adjacency list.
+   * Returns { file → [files it imports] } for the whole project.
+   */
+  getFullDependencyGraph(): Map<string, string[]> {
+    const stmt = this.db.prepare(`
+      SELECT f.path as filePath, i.imported_from as importedFrom
+      FROM imports i
+      JOIN files f ON i.file_id = f.id
+    `);
+    const rows = stmt.all() as Array<{ filePath: string; importedFrom: string }>;
+
+    const graph = new Map<string, string[]>();
+    for (const row of rows) {
+      if (!graph.has(row.filePath)) graph.set(row.filePath, []);
+      graph.get(row.filePath)!.push(row.importedFrom);
+    }
+    return graph;
+  }
+
+  /**
+   * Find circular dependencies in the project.
+   * Returns arrays of file paths that form cycles.
+   */
+  findCircularDependencies(): Array<string[]> {
+    const graph = this.getFullDependencyGraph();
+    const cycles: Array<string[]> = [];
+    const visited = new Set<string>();
+    const stack = new Set<string>();
+
+    const dfs = (node: string, path: string[]) => {
+      if (stack.has(node)) {
+        // Found cycle
+        const cycleStart = path.indexOf(node);
+        if (cycleStart >= 0) {
+          cycles.push(path.slice(cycleStart).concat(node));
+        }
+        return;
+      }
+      if (visited.has(node)) return;
+
+      visited.add(node);
+      stack.add(node);
+      path.push(node);
+
+      const deps = graph.get(node) || [];
+      for (const dep of deps) {
+        // Resolve relative imports to file paths
+        const resolved = this.resolveImportPath(node, dep);
+        if (resolved) dfs(resolved, [...path]);
+      }
+
+      stack.delete(node);
+    };
+
+    for (const file of graph.keys()) {
+      dfs(file, []);
+    }
+
+    // Deduplicate cycles (same cycle can be found from different starting points)
+    const uniqueCycles: Array<string[]> = [];
+    const seen = new Set<string>();
+    for (const cycle of cycles) {
+      const normalized = [...cycle].sort().join('|');
+      if (!seen.has(normalized)) {
+        seen.add(normalized);
+        uniqueCycles.push(cycle);
+      }
+    }
+
+    return uniqueCycles;
+  }
+
+  /**
+   * Resolve a relative import path to an actual file path in the database.
+   */
+  resolveImportPath(fromFile: string, importPath: string): string | null {
+    // Skip external packages (node_modules)
+    if (!importPath.startsWith('.') && !importPath.startsWith('/')) return null;
+
+    const dir = fromFile.split(/[/\\]/).slice(0, -1).join('/');
+
+    // Normalize the import path
+    let resolved = importPath;
+    if (importPath.startsWith('./')) {
+      resolved = dir + '/' + importPath.slice(2);
+    } else if (importPath.startsWith('../')) {
+      const parts = dir.split('/');
+      let impParts = importPath.split('/');
+      while (impParts[0] === '..') {
+        parts.pop();
+        impParts.shift();
+      }
+      resolved = parts.join('/') + '/' + impParts.join('/');
+    }
+
+    // Remove extension if present
+    const baseName = resolved.replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '');
+
+    // Try to find a matching file in the database
+    const stmt = this.db.prepare(`
+      SELECT path FROM files
+      WHERE path = ? OR path = ? OR path = ? OR path = ?
+         OR path = ? OR path = ?
+      LIMIT 1
+    `);
+    const result = stmt.get(
+      `${baseName}.ts`, `${baseName}.tsx`,
+      `${baseName}.js`, `${baseName}.jsx`,
+      `${baseName}/index.ts`, `${baseName}/index.js`
+    ) as { path: string } | undefined;
+
+    return result?.path || null;
+  }
+
+  /**
+   * Resolve an import path to a file record in the database.
+   * Used by indexer to build the dependencies table.
+   */
+  resolveImportToFile(
+    sourceFilePath: string,
+    importPath: string
+  ): { id: number; path: string } | null {
+    // Skip external packages
+    if (!importPath.startsWith('.') && !importPath.startsWith('/')) return null;
+
+    const sourceDir = sourceFilePath.split(/[/\\]/).slice(0, -1).join('/');
+
+    // Normalize the import path
+    let resolved = importPath;
+    if (importPath.startsWith('./')) {
+      resolved = sourceDir + '/' + importPath.slice(2);
+    } else if (importPath.startsWith('../')) {
+      const parts = sourceDir.split('/');
+      let impParts = importPath.split('/');
+      while (impParts[0] === '..') {
+        parts.pop();
+        impParts.shift();
+      }
+      resolved = parts.join('/') + '/' + impParts.join('/');
+    }
+
+    // Remove extension if present
+    resolved = resolved.replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '');
+
+    // Try exact matches with common extensions
+    const stmt = this.db.prepare(`
+      SELECT id, path FROM files
+      WHERE path = ? OR path = ? OR path = ? OR path = ?
+         OR path = ? OR path = ?
+      LIMIT 1
+    `);
+
+    const result = stmt.get(
+      `${resolved}.ts`, `${resolved}.tsx`,
+      `${resolved}.js`, `${resolved}.jsx`,
+      `${resolved}/index.ts`, `${resolved}/index.js`
+    ) as { id: number; path: string } | undefined;
+
+    return result || null;
   }
 }

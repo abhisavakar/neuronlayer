@@ -269,7 +269,11 @@ export class ProjectManager {
     const result: Array<{ project: ProjectInfo; db: Database.Database }> = [];
 
     for (const project of this.listProjects()) {
-      const dbPath = join(project.dataDir, 'memorylayer.db');
+      // Check both new and old database names
+      let dbPath = join(project.dataDir, 'neuronlayer.db');
+      if (!existsSync(dbPath)) {
+        dbPath = join(project.dataDir, 'memorylayer.db');
+      }
 
       if (existsSync(dbPath)) {
         try {

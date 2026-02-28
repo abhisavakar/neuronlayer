@@ -139,6 +139,37 @@ export const toolDefinitions: ToolDefinition[] = [
     }
   },
   {
+    name: 'find_circular_deps',
+    description: 'Find circular dependencies in the project. Circular imports cause subtle bugs, make refactoring dangerous, and can lead to undefined values at runtime. Use this to detect and fix import cycles.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: []
+    }
+  },
+  {
+    name: 'get_impact_analysis',
+    description: 'Analyze the full impact of changing a file. Shows all directly and indirectly affected files, affected tests, and circular dependencies. Use this BEFORE making changes to understand the blast radius and risk level.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          description: 'File path to analyze impact for'
+        },
+        depth: {
+          type: 'number',
+          description: 'How many hops to follow in the dependency graph (default: 3)'
+        },
+        include_tests: {
+          type: 'boolean',
+          description: 'Include affected tests in the analysis (default: true)'
+        }
+      },
+      required: ['file']
+    }
+  },
+  {
     name: 'get_file_summary',
     description: 'Get a compressed summary of a file (10x smaller than full content). Use this for quick overview without reading full file.',
     inputSchema: {
@@ -1054,6 +1085,104 @@ export async function handleToolCall(
         imports: result.imports,
         imported_by: result.importedBy,
         symbols: result.symbols
+      };
+    }
+
+    case 'find_circular_deps': {
+      const cycles = engine.findCircularDependencies();
+
+      if (cycles.length === 0) {
+        return {
+          status: 'clean',
+          message: 'No circular dependencies found',
+          cycles: []
+        };
+      }
+
+      return {
+        status: 'cycles_found',
+        message: `Found ${cycles.length} circular dependency chain(s)`,
+        cycles: cycles.map((cycle, i) => ({
+          id: i + 1,
+          files: cycle,
+          length: cycle.length - 1, // -1 because last element repeats first
+          description: cycle.join(' → ')
+        })),
+        recommendation: 'Break cycles by extracting shared code into a separate module, using dependency injection, or restructuring imports.'
+      };
+    }
+
+    case 'get_impact_analysis': {
+      const filePath = args.file as string;
+      const depth = (args.depth as number) || 3;
+      const includeTests = args.include_tests !== false;
+
+      // Get transitive dependents (files affected by changing this file)
+      const affected = engine.getTransitiveDependents(filePath, depth);
+
+      // Get what this file imports
+      const deps = engine.getFileDependencies(filePath);
+
+      // Get affected tests if requested
+      let affectedTests: Array<{ name: string; file: string }> = [];
+      if (includeTests) {
+        const allAffectedFiles = [filePath, ...affected.map(a => a.file)];
+        const testSet = new Set<string>();
+
+        for (const f of allAffectedFiles) {
+          const tests = engine.getTestsForFile(f);
+          for (const t of tests) {
+            if (!testSet.has(t.id)) {
+              testSet.add(t.id);
+              affectedTests.push({ name: t.name, file: t.file });
+            }
+          }
+        }
+      }
+
+      // Check for circular dependencies involving this file
+      const allCycles = engine.findCircularDependencies();
+      const relevantCycles = allCycles.filter(cycle => cycle.includes(filePath));
+
+      // Calculate risk level
+      const totalAffected = affected.length;
+      const riskLevel = totalAffected > 10 ? 'HIGH' : totalAffected > 5 ? 'MEDIUM' : 'LOW';
+
+      // Build risk factors
+      const riskFactors: string[] = [];
+      if (totalAffected > 10) riskFactors.push(`${totalAffected} files depend on this`);
+      if (relevantCycles.length > 0) riskFactors.push(`Involved in ${relevantCycles.length} circular dependency chain(s)`);
+      if (affectedTests.length > 5) riskFactors.push(`${affectedTests.length} tests may need updates`);
+      if (deps.imports.length > 10) riskFactors.push(`File has ${deps.imports.length} dependencies`);
+
+      return {
+        file: filePath,
+        risk_level: riskLevel,
+        risk_factors: riskFactors.length > 0 ? riskFactors : ['No significant risk factors detected'],
+        summary: {
+          total_affected_files: totalAffected,
+          direct_dependents: affected.filter(a => a.depth === 1).length,
+          indirect_dependents: affected.filter(a => a.depth > 1).length,
+          affected_tests: affectedTests.length,
+          circular_dependencies: relevantCycles.length
+        },
+        direct_dependents: affected.filter(a => a.depth === 1).map(a => ({
+          file: a.file,
+          imports: a.imports
+        })),
+        indirect_dependents: affected.filter(a => a.depth > 1).map(a => ({
+          file: a.file,
+          depth: a.depth,
+          imports: a.imports
+        })),
+        this_file_imports: deps.imports.map(i => i.file),
+        affected_tests: affectedTests,
+        circular_dependencies: relevantCycles.map(cycle => cycle.join(' → ')),
+        recommendation: riskLevel === 'HIGH'
+          ? 'High-impact change. Consider breaking it into smaller changes and testing incrementally.'
+          : riskLevel === 'MEDIUM'
+            ? 'Moderate impact. Review affected files and ensure tests cover the changes.'
+            : 'Low-risk change. Standard review and testing should suffice.'
       };
     }
 

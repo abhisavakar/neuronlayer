@@ -149,6 +149,17 @@ export class Indexer extends EventEmitter {
             const exportsWithFileId = parsed.exports.map(e => ({ ...e, fileId }));
             this.tier2.insertExports(exportsWithFileId);
           }
+
+          // Build dependency edges from imports
+          if (parsed.imports.length > 0) {
+            this.tier2.clearDependencies(fileId);
+            for (const imp of parsed.imports) {
+              const targetFile = this.tier2.resolveImportToFile(relativePath, imp.importedFrom);
+              if (targetFile) {
+                this.tier2.addDependency(fileId, targetFile.id, 'imports');
+              }
+            }
+          }
         }
       } catch (astError) {
         // AST parsing is optional, don't fail the whole index
@@ -156,6 +167,20 @@ export class Indexer extends EventEmitter {
       }
 
       this.emit('fileIndexed', relativePath);
+
+      // Emit impact warning for changed files (not during initial indexing)
+      if (!this.isIndexing) {
+        const dependents = this.tier2.getFileDependents(relativePath);
+        if (dependents.length > 0) {
+          this.emit('fileImpact', {
+            file: relativePath,
+            affectedFiles: dependents.map(d => d.file),
+            affectedCount: dependents.length,
+            imports: dependents.map(d => ({ file: d.file, symbols: d.imports }))
+          });
+        }
+      }
+
       return true; // Actually indexed
     } catch (error) {
       console.error(`Error indexing ${absolutePath}:`, error);

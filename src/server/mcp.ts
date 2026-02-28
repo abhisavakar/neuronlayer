@@ -25,7 +25,7 @@ export class MCPServer {
 
     this.server = new Server(
       {
-        name: 'memorylayer',
+        name: 'neuronlayer',
         version: '0.1.0'
       },
       {
