@@ -7,6 +7,10 @@
   "bin": {
     "neuronlayer": "dist/index.js"
   },
+  "files": [
+    "dist/**",
+    "wasm/**"
+  ],
   "scripts": {
     "build": "node esbuild.config.js",
     "dev": "node --watch dist/index.js",
@@ -40,6 +44,7 @@
     "better-sqlite3": "^11.8.0",
     "chokidar": "^4.0.0",
     "glob": "^13.0.0",
+    "tree-sitter-wasms": "^0.1.13",
     "web-tree-sitter": "^0.24.0"
   },
   "devDependencies": {

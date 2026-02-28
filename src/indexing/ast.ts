@@ -119,15 +119,40 @@ export class ASTParser {
 
   async initialize(): Promise<void> {
     if (this.initialized) return;
-    // Using regex-based parsing for reliable cross-platform support
-    // Tree-sitter WASM support reserved for future enhancement
-    this.initialized = true;
+
+    try {
+      await Parser.init();
+      this.initialized = true;
+    } catch (error) {
+      console.warn('Failed to initialize tree-sitter, will fall back to regex:', error);
+    }
   }
 
-  private async loadLanguage(_langName: string): Promise<Parser.Language | null> {
-    // Tree-sitter WASM loading not implemented - using regex fallback
-    // Language configs are retained for future tree-sitter support
-    return null;
+  private async loadLanguage(langName: string): Promise<Parser.Language | null> {
+    if (this.languages.has(langName)) {
+      return this.languages.get(langName)!;
+    }
+
+    const config = LANGUAGE_CONFIGS[langName];
+    if (!config || !this.initialized) return null;
+
+    try {
+      // Load WASM from the tree-sitter-wasms package
+      const wasmPath = fileURLToPath(import.meta.resolve(`tree-sitter-wasms/out/${config.wasmFile}`));
+      
+      if (!existsSync(wasmPath)) {
+        console.warn(`WASM file not found for ${langName}: ${wasmPath}`);
+        return null;
+      }
+
+      const wasmData = readFileSync(wasmPath);
+      const language = await Parser.Language.load(wasmData);
+      this.languages.set(langName, language);
+      return language;
+    } catch (error) {
+      console.warn(`Failed to load tree-sitter language ${langName}:`, error);
+      return null;
+    }
   }
 
   getLanguageForFile(filePath: string): string | null {
@@ -150,8 +175,97 @@ export class ASTParser {
       await this.initialize();
     }
 
-    // Regex-based parsing - reliable cross-platform symbol extraction
-    return this.parseWithRegex(filePath, content);
+    // Always run the regex parser to get imports and exports
+    // (since our tree-sitter queries don't extract them fully yet)
+    let { symbols, imports, exports } = this.parseWithRegex(filePath, content);
+
+    const lang = this.getLanguageForFile(filePath);
+    if (lang && this.initialized) {
+      const language = await this.loadLanguage(lang);
+      if (language) {
+        try {
+          const tsResult = this.parseWithTreeSitter(filePath, content, language, lang);
+          // If tree-sitter succeeded, use its superior symbols instead of regex symbols
+          if (tsResult.symbols.length > 0) {
+            symbols = tsResult.symbols;
+          }
+        } catch (error) {
+          console.warn(`Tree-sitter parsing failed for ${filePath}, falling back to regex:`, error);
+        }
+      }
+    }
+
+    return { symbols, imports, exports };
+  }
+
+  private parseWithTreeSitter(
+    filePath: string,
+    content: string,
+    language: Parser.Language,
+    langName: string
+  ): {
+    symbols: CodeSymbol[];
+    imports: Import[];
+    exports: Export[];
+  } {
+    const parser = new Parser();
+    parser.setLanguage(language);
+    
+    // We can't guarantee tree-sitter parser is completely thread-safe in this environment, 
+    // so we instantiate a new one per file. It's lightweight enough.
+    const tree = parser.parse(content);
+    const config = LANGUAGE_CONFIGS[langName];
+    
+    const symbols: CodeSymbol[] = [];
+    const imports: Import[] = [];
+    const exports: Export[] = [];
+
+    if (!config) return { symbols, imports, exports };
+
+    // Helper to run query and map results
+    const runQuery = (queryString: string, kind: SymbolKind) => {
+      try {
+        const query = language.query(queryString);
+        const matches = query.matches(tree.rootNode);
+        
+        for (const match of matches) {
+          const nameCapture = match.captures.find(c => c.name === 'name');
+          // For things like function arrow assignments or anonymous exports, the structure might vary
+          // But our basic @name capture logic handles most cases.
+          if (nameCapture) {
+            const node = nameCapture.node;
+            // Get the parent node (the actual function/class declaration) to get the full line range
+            const defNode = match.captures[0]?.node || node.parent || node;
+            
+            symbols.push({
+              fileId: 0,
+              filePath,
+              kind,
+              name: node.text,
+              lineStart: defNode.startPosition.row + 1,
+              lineEnd: defNode.endPosition.row + 1,
+              // Check if parent or grandparent is an export statement, typical in TS/JS
+              exported: defNode.parent?.type === 'export_statement' || defNode.parent?.parent?.type === 'export_statement',
+              signature: content.slice(defNode.startIndex, defNode.endIndex).split('\\n')[0]
+            });
+          }
+        }
+      } catch (err) {
+        console.warn(`Query error for ${kind} in ${langName}:`, err);
+      }
+    };
+
+    if (config.queries.functions) runQuery(config.queries.functions, 'function');
+    if (config.queries.classes) runQuery(config.queries.classes, 'class');
+    if (config.queries.interfaces) runQuery(config.queries.interfaces, 'interface');
+    if (config.queries.types) runQuery(config.queries.types, 'type');
+    
+    // Not implementing exact imports/exports extraction via Tree-sitter yet,
+    // as it requires more complex language-specific handling (e.g., getting string values).
+    // Will rely on regex parser for the imports/exports portion as a fallback below
+    // unless the tree-sitter symbols array is deemed sufficient.
+    
+    return { symbols, imports, exports };
   }
 
   // Regex-based parsing for symbol extraction

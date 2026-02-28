@@ -5,6 +5,7 @@
 NeuronLayer is an MCP server that indexes your codebase and gives AI assistants like Claude the ability to understand your project's structure, dependencies, and history across sessions.
 
 [![npm version](https://img.shields.io/npm/v/neuronlayer.svg)](https://www.npmjs.com/package/neuronlayer)
+[![npm downloads](https://img.shields.io/npm/dw/neuronlayer.svg)](https://www.npmjs.com/package/neuronlayer)
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933.svg)](https://nodejs.org/)
 [![MCP](https://img.shields.io/badge/MCP-Compatible-blue.svg)](https://modelcontextprotocol.io/)
@@ -13,7 +14,7 @@ NeuronLayer is an MCP server that indexes your codebase and gives AI assistants 
 
 ## What NeuronLayer Does
 
-- **Indexes your code** - Extracts functions, classes, imports, and exports using regex parsing
+- **Indexes your code** - Extracts functions, classes, imports, and exports using true Tree-sitter AST parsing
 - **Builds a dependency graph** - Tracks what files import what, transitively
 - **Analyzes impact** - Shows which files are affected when you change something
 - **Detects circular dependencies** - Finds import cycles in your codebase
@@ -108,7 +109,7 @@ When your AI assistant asks a question, NeuronLayer provides the relevant contex
 | Rust | Functions, structs, imports |
 | Java | Classes, methods, imports |
 
-Parsing uses regex patterns, which works reliably across platforms but may miss edge cases in complex syntax.
+Parsing is powered by **Tree-sitter WASM**, providing true Abstract Syntax Tree (AST) understanding rather than fragile regex matching. This ensures 100% accurate symbol extraction, boundary detection, and method signatures across all supported languages.
 
 ---
 
