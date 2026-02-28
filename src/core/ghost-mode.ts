@@ -64,9 +64,16 @@ const TECH_PATTERNS = [
   { pattern: /\b(sass|scss|less)\b/i, category: 'styling', term: 'CSS preprocessor' },
 ];
 
+export interface FileImpact {
+  changedFile: string;
+  affectedFiles: string[];
+  timestamp: Date;
+}
+
 export class GhostMode {
   private activeFiles: Map<string, FileContext> = new Map();
   private recentDecisions: Map<string, Decision[]> = new Map();
+  private recentImpacts: Map<string, FileImpact> = new Map(); // Track file impacts
   private tier2: Tier2Storage;
   private embeddingGenerator: EmbeddingGenerator;
 
@@ -74,10 +81,56 @@ export class GhostMode {
   private readonly MAX_ACTIVE_FILES = 20;
   private readonly FILE_TTL_MS = 60 * 60 * 1000; // 1 hour
   private readonly DECISION_CACHE_SIZE = 50;
+  private readonly IMPACT_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
   constructor(tier2: Tier2Storage, embeddingGenerator: EmbeddingGenerator) {
     this.tier2 = tier2;
     this.embeddingGenerator = embeddingGenerator;
+  }
+
+  /**
+   * Called when a file change impacts other files
+   */
+  onFileImpact(changedFile: string, affectedFiles: string[]): void {
+    const impact: FileImpact = {
+      changedFile,
+      affectedFiles,
+      timestamp: new Date()
+    };
+
+    // Store impact for each affected file
+    for (const file of affectedFiles) {
+      this.recentImpacts.set(file, impact);
+    }
+
+    // Evict old impacts
+    this.evictStaleImpacts();
+  }
+
+  /**
+   * Check if a file was recently impacted by changes to another file
+   */
+  getImpactWarning(filePath: string): FileImpact | null {
+    const impact = this.recentImpacts.get(filePath);
+    if (!impact) return null;
+
+    // Check if still within TTL
+    const age = Date.now() - impact.timestamp.getTime();
+    if (age > this.IMPACT_TTL_MS) {
+      this.recentImpacts.delete(filePath);
+      return null;
+    }
+
+    return impact;
+  }
+
+  private evictStaleImpacts(): void {
+    const now = Date.now();
+    for (const [file, impact] of this.recentImpacts) {
+      if (now - impact.timestamp.getTime() > this.IMPACT_TTL_MS) {
+        this.recentImpacts.delete(file);
+      }
+    }
   }
 
   /**

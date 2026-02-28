@@ -252,6 +252,9 @@ export class MemoryLayerEngine {
           impact.affectedFiles.slice(0, 3).forEach(f => console.error(`  → ${f}`));
           console.error(`  ... and ${impact.affectedCount - 3} more`);
         }
+
+        // Track impact in ghost mode for proactive warnings
+        this.ghostMode.onFileImpact(impact.file, impact.affectedFiles);
       }
     });
 

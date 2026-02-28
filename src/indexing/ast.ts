@@ -119,41 +119,15 @@ export class ASTParser {
 
   async initialize(): Promise<void> {
     if (this.initialized) return;
-
-    try {
-      await Parser.init();
-      this.parser = new Parser();
-      this.initialized = true;
-      console.error('AST Parser initialized');
-    } catch (error) {
-      console.error('Failed to initialize AST parser:', error);
-      throw error;
-    }
+    // Using regex-based parsing for reliable cross-platform support
+    // Tree-sitter WASM support reserved for future enhancement
+    this.initialized = true;
   }
 
-  private async loadLanguage(langName: string): Promise<Parser.Language | null> {
-    if (this.languages.has(langName)) {
-      return this.languages.get(langName)!;
-    }
-
-    const config = LANGUAGE_CONFIGS[langName];
-    if (!config) {
-      return null;
-    }
-
-    try {
-      // Try to load from node_modules or bundled location
-      const wasmDir = join(this.dataDir, 'wasm');
-      const wasmPath = join(wasmDir, config.wasmFile);
-
-      // For now, we'll use a simplified approach without external WASM files
-      // In production, you'd download these from tree-sitter releases
-      console.error(`Language ${langName} WASM not available yet`);
-      return null;
-    } catch (error) {
-      console.error(`Failed to load language ${langName}:`, error);
-      return null;
-    }
+  private async loadLanguage(_langName: string): Promise<Parser.Language | null> {
+    // Tree-sitter WASM loading not implemented - using regex fallback
+    // Language configs are retained for future tree-sitter support
+    return null;
   }
 
   getLanguageForFile(filePath: string): string | null {
@@ -176,11 +150,13 @@ export class ASTParser {
       await this.initialize();
     }
 
-    // Use regex-based parsing as fallback since WASM loading is complex
+    // Regex-based parsing - reliable cross-platform symbol extraction
     return this.parseWithRegex(filePath, content);
   }
 
-  // Regex-based parsing fallback (works without WASM)
+  // Regex-based parsing for symbol extraction
+  // Handles: functions, classes, interfaces, types, imports, exports
+  // Supports: TypeScript, JavaScript, Python, Go, Rust, Java
   private parseWithRegex(filePath: string, content: string): {
     symbols: CodeSymbol[];
     imports: Import[];

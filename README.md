@@ -17,12 +17,11 @@ Most "memory tools" for AI are just note-taking with embeddings. NeuronLayer doe
 
 | Memory Tools | NeuronLayer |
 |--------------|-------------|
-| Store text, retrieve by similarity | **Parse code structure** (AST-based) |
+| Store text, retrieve by similarity | **Parse code structure** (regex-based extraction) |
 | Keyword/embedding search | **Understand dependencies** (what imports what) |
 | Tag-based organization | **Transitive impact analysis** (change X → affects Y, Z) |
 | Session notes | **Circular dependency detection** |
-| | **Test coverage mapping** (which tests cover which functions) |
-| | **Predict test failures** before you run them |
+| | **Test indexing** (identifies test files and what they test) |
 | | **Conflict detection** with recorded decisions |
 
 **The AI thinks it's using memory tools. It's actually getting code intelligence.**
@@ -81,7 +80,7 @@ neuronlayer init
 That's it! This automatically:
 1. Registers your project
 2. Configures Claude Desktop, Claude Code, and OpenCode
-3. Indexes your codebase (AST parsing, dependency graph, tests)
+3. Indexes your codebase (symbol extraction, dependency graph, tests)
 
 Just restart your AI tool and NeuronLayer is active.
 
@@ -127,10 +126,11 @@ find_circular_deps()
 
 ### Test Awareness
 
-NeuronLayer indexes your tests and knows:
-- Which functions each test covers
-- Which tests would be affected by a change
-- Suggests test updates when code changes
+NeuronLayer indexes your test files:
+- Detects test framework (Jest, Vitest, Mocha, pytest, etc.)
+- Identifies test files by naming conventions and patterns
+- Maps tests to source files they import
+- Shows which tests may be affected when files change
 
 ### Real-Time Impact Warnings
 
@@ -180,13 +180,15 @@ When you save a file, NeuronLayer tells you what's affected:
 
 ## Language Support
 
-| Language | Parsing | Dependency Tracking |
-|----------|---------|---------------------|
-| TypeScript/JavaScript | Full AST | Yes |
-| Python | Full AST | Yes |
-| Go | Regex-based | Yes |
-| Rust | Regex-based | Yes |
-| Java | Regex-based | Yes |
+All languages use regex-based parsing for reliable cross-platform support.
+
+| Language | Symbol Extraction | Dependency Tracking |
+|----------|-------------------|---------------------|
+| TypeScript/JavaScript | Functions, classes, imports, exports | Yes |
+| Python | Functions, classes, imports | Yes |
+| Go | Functions, structs, imports | Yes |
+| Rust | Functions, structs, imports | Yes |
+| Java | Classes, methods, imports | Yes |
 
 ---
 
@@ -194,14 +196,14 @@ When you save a file, NeuronLayer tells you what's affected:
 
 | Feature | Status | Description |
 |---------|--------|-------------|
-| **Dependency Graph** | Working | Tracks imports, exports, transitive dependencies |
-| **Impact Analysis** | Working | Shows blast radius of changes |
-| **Circular Detection** | Working | Finds import cycles automatically |
-| **Test Indexing** | Working | Indexes tests, maps coverage, predicts failures |
-| **Semantic Search** | Working | Find code by meaning using embeddings |
+| **Dependency Graph** | Working | Tracks imports via regex, builds transitive dependency graph |
+| **Impact Analysis** | Working | Shows blast radius using BFS graph traversal |
+| **Circular Detection** | Working | Finds import cycles using DFS |
+| **Test Indexing** | Working | Indexes test files, identifies what functions they test |
+| **Semantic Search** | Working | Find code by meaning using local embeddings (MiniLM-L6) |
 | **Decision Recording** | Working | Log architectural decisions with context |
 | **Pattern Library** | Working | Learn and validate coding patterns |
-| **AST Parsing** | Working | Extract symbols, functions, classes, imports |
+| **Symbol Extraction** | Working | Extract functions, classes, imports via regex |
 | **Context Compaction** | Working | Smart summarization when context fills |
 | **Git Integration** | Working | Track changes, correlate with decisions |
 | **Multi-Project** | Working | Switch between projects seamlessly |
@@ -250,9 +252,9 @@ src/storage/
 └── tier3.ts             # Vector embeddings (semantic)
 
 src/indexing/
-├── ast.ts               # AST parsing (TS/JS/Python/Go/Rust/Java)
+├── ast.ts               # Regex-based parsing (TS/JS/Python/Go/Rust/Java)
 ├── indexer.ts           # File indexing + dependency building
-└── embeddings.ts        # Vector embedding generation
+└── embeddings.ts        # Local embedding generation (MiniLM-L6)
 ```
 
 ---
