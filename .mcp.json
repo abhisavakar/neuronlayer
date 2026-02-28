@@ -1,15 +1,5 @@
 {
   "mcpServers": {
-    "memorylayer": {
-      "type": "stdio",
-      "command": "node",
-      "args": [
-        "C:\\Users\\abhis\\Desktop\\fullstackoverweekend\\MemoryLayer\\dist\\index.js",
-        "--project",
-        "."
-      ],
-      "env": {}
-    },
     "neuronlayer": {
       "command": "npx",
       "args": [

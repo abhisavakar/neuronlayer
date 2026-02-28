@@ -298,6 +298,9 @@ function configureProjectMCP(
     config.mcpServers = {};
   }
 
+  // Clean up old 'memorylayer' entries from previous versions
+  delete config.mcpServers['memorylayer'];
+
   // Always use absolute path so the MCP server resolves correctly
   // regardless of which tool launches it or from which working directory
   const absoluteProjectPath = resolve(projectPath);
@@ -334,6 +337,9 @@ function configureOpenCode(
   if (!config.mcp || typeof config.mcp !== 'object') {
     config.mcp = {};
   }
+
+  // Clean up old 'memorylayer' entries from previous versions
+  delete (config.mcp as Record<string, unknown>)['memorylayer'];
 
   const absoluteProjectPath = resolve(projectPath);
   (config.mcp as Record<string, unknown>)['neuronlayer'] = {
