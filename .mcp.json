@@ -9,6 +9,15 @@
         "."
       ],
       "env": {}
+    },
+    "neuronlayer": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "neuronlayer",
+        "--project",
+        "C:\\Users\\abhis\\Desktop\\fullstackoverweekend\\MemoryLayer"
+      ]
     }
   }
 }

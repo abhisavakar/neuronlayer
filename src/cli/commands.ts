@@ -314,6 +314,42 @@ function configureProjectMCP(
   }
 }
 
+// Helper to configure OpenCode's opencode.json (uses a different format than other MCP clients)
+function configureOpenCode(
+  projectPath: string
+): { success: boolean; message: string } {
+  const configPath = join(projectPath, 'opencode.json');
+  let config: Record<string, unknown> = {};
+
+  try {
+    if (existsSync(configPath)) {
+      const content = readFileSync(configPath, 'utf-8');
+      config = JSON.parse(content);
+    }
+  } catch {
+    // Config doesn't exist or is invalid, start fresh
+  }
+
+  // OpenCode expects MCP servers under an "mcp" key with type "local" and command as array
+  if (!config.mcp || typeof config.mcp !== 'object') {
+    config.mcp = {};
+  }
+
+  const absoluteProjectPath = resolve(projectPath);
+  (config.mcp as Record<string, unknown>)['neuronlayer'] = {
+    type: 'local',
+    command: ['npx', '-y', 'neuronlayer', '--project', absoluteProjectPath],
+    enabled: true
+  };
+
+  try {
+    writeFileSync(configPath, JSON.stringify(config, null, 2));
+    return { success: true, message: `OpenCode: ${configPath}` };
+  } catch (err) {
+    return { success: false, message: `OpenCode: Failed - ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
 // Initialize neuronlayer for current project + auto-configure Claude Desktop & OpenCode
 export function initProject(projectPath?: string): CommandResult {
   const targetPath = projectPath || process.cwd();
@@ -348,8 +384,13 @@ export function initProject(projectPath?: string): CommandResult {
     failedClients.push(claudeResult.message);
   }
 
-  // 3. OpenCode uses the same project-local .mcp.json as Claude Code
-  // (configured in step 4 below), so no separate config step needed
+  // 3. Configure OpenCode (uses opencode.json with different format)
+  const openCodeResult = configureOpenCode(targetPath);
+  if (openCodeResult.success) {
+    configuredClients.push(openCodeResult.message);
+  } else {
+    failedClients.push(openCodeResult.message);
+  }
 
   // 4. Configure Claude Code (CLI) - use project-local .mcp.json
   // This ensures only the current project's NeuronLayer connects
