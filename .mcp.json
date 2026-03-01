@@ -1,8 +1,10 @@
 {
   "mcpServers": {
     "neuronlayer": {
-      "command": "npx",
+      "command": "cmd",
       "args": [
+        "/c",
+        "npx",
         "-y",
         "neuronlayer",
         "--project",

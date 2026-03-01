@@ -265,10 +265,11 @@ function configureMCPClient(
     config.mcpServers = {};
   }
 
-  config.mcpServers[serverName] = {
-    command: 'npx',
-    args: ['-y', 'neuronlayer', '--project', projectPath]
-  };
+  // Windows requires 'cmd /c' wrapper to execute npx in MCP clients
+  const isWindows = process.platform === 'win32';
+  config.mcpServers[serverName] = isWindows
+    ? { command: 'cmd', args: ['/c', 'npx', '-y', 'neuronlayer', '--project', projectPath] }
+    : { command: 'npx', args: ['-y', 'neuronlayer', '--project', projectPath] };
 
   try {
     writeFileSync(configPath, JSON.stringify(config, null, 2));
@@ -301,13 +302,12 @@ function configureProjectMCP(
   // Clean up old 'memorylayer' entries from previous versions
   delete config.mcpServers['memorylayer'];
 
-  // Always use absolute path so the MCP server resolves correctly
-  // regardless of which tool launches it or from which working directory
+  // Windows requires 'cmd /c' wrapper to execute npx in MCP clients
   const absoluteProjectPath = resolve(projectPath);
-  config.mcpServers['neuronlayer'] = {
-    command: 'npx',
-    args: ['-y', 'neuronlayer', '--project', absoluteProjectPath]
-  };
+  const isWindows = process.platform === 'win32';
+  config.mcpServers['neuronlayer'] = isWindows
+    ? { command: 'cmd', args: ['/c', 'npx', '-y', 'neuronlayer', '--project', absoluteProjectPath] }
+    : { command: 'npx', args: ['-y', 'neuronlayer', '--project', absoluteProjectPath] };
 
   try {
     writeFileSync(configPath, JSON.stringify(config, null, 2));
