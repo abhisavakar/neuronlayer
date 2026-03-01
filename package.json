@@ -1,6 +1,6 @@
 {
   "name": "neuronlayer",
-  "version": "0.2.9",
+  "version": "0.2.10",
   "description": "MCP server that gives AI assistants persistent understanding of your codebase",
   "type": "module",
   "main": "dist/index.js",
