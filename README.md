@@ -48,9 +48,9 @@ This registers your project and configures Claude Desktop, Claude Code, OpenCode
 | Tool | Setup |
 |------|-------|
 | Claude Desktop | `neuronlayer init` (auto) |
-| Claude Code (CLI) | [`neuronlayer init` (auto)](./documentation/CLAUDE-CODE-SETUP.md) |
+| Claude Code (CLI) | [`neuronlayer init` (auto)](./doc/CLAUDE-CODE-SETUP.md) |
 | Cursor | `neuronlayer init` (auto) |
-| OpenCode | [`neuronlayer init` (auto)](./documentation/OPENCODE-SETUP.md) |
+| OpenCode | [`neuronlayer init` (auto)](./doc/OPENCODE-SETUP.md) |
 | Any MCP Client | Manual config |
 | **Any tool (HTTP)** | `neuronlayer serve` |
 
