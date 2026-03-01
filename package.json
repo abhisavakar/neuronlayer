@@ -9,7 +9,8 @@
   },
   "files": [
     "dist/**",
-    "wasm/**"
+    "wasm/**",
+    "doc/**"
   ],
   "scripts": {
     "build": "node esbuild.config.js",

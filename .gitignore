@@ -45,4 +45,5 @@ coverage/
 opencode.json
 
 # Internal documentation
+# (doc/ is intentionally committed)
 documentation/
