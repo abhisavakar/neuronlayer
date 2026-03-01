@@ -265,11 +265,14 @@ function configureMCPClient(
     config.mcpServers = {};
   }
 
-  // Windows requires 'cmd /c' wrapper to execute npx in MCP clients
+  // Execute direct binary to avoid npx network latency which causes 30s timeouts
   const isWindows = process.platform === 'win32';
-  config.mcpServers[serverName] = isWindows
-    ? { command: 'cmd', args: ['/c', 'npx', '-y', 'neuronlayer', '--project', projectPath] }
-    : { command: 'npx', args: ['-y', 'neuronlayer', '--project', projectPath] };
+  const binName = isWindows ? 'neuronlayer.cmd' : 'neuronlayer';
+  
+  config.mcpServers[serverName] = { 
+    command: binName, 
+    args: ['--project', projectPath] 
+  };
 
   try {
     writeFileSync(configPath, JSON.stringify(config, null, 2));
@@ -302,12 +305,15 @@ function configureProjectMCP(
   // Clean up old 'memorylayer' entries from previous versions
   delete config.mcpServers['memorylayer'];
 
-  // Windows requires 'cmd /c' wrapper to execute npx in MCP clients
+  // Execute direct binary to avoid npx network latency which causes 30s timeouts
   const absoluteProjectPath = resolve(projectPath);
   const isWindows = process.platform === 'win32';
-  config.mcpServers['neuronlayer'] = isWindows
-    ? { command: 'cmd', args: ['/c', 'npx', '-y', 'neuronlayer', '--project', absoluteProjectPath] }
-    : { command: 'npx', args: ['-y', 'neuronlayer', '--project', absoluteProjectPath] };
+  const binName = isWindows ? 'neuronlayer.cmd' : 'neuronlayer';
+  
+  config.mcpServers['neuronlayer'] = { 
+    command: binName, 
+    args: ['--project', absoluteProjectPath] 
+  };
 
   try {
     writeFileSync(configPath, JSON.stringify(config, null, 2));
@@ -342,9 +348,12 @@ function configureOpenCode(
   delete (config.mcp as Record<string, unknown>)['memorylayer'];
 
   const absoluteProjectPath = resolve(projectPath);
+  const isWindows = process.platform === 'win32';
+  const binName = isWindows ? 'neuronlayer.cmd' : 'neuronlayer';
+  
   (config.mcp as Record<string, unknown>)['neuronlayer'] = {
     type: 'local',
-    command: ['npx', '-y', 'neuronlayer', '--project', absoluteProjectPath],
+    command: [binName, '--project', absoluteProjectPath],
     enabled: true
   };
 

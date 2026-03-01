@@ -74,6 +74,15 @@ async function main(): Promise<void> {
   console.error(`Data directory: ${config.dataDir}`);
 
   // Create and start MCP server
+  // CRITICAL: Monkey-patch console.log to console.error in MCP mode.
+  // Many third-party libraries (like @xenova/transformers) log to stdout by default.
+  // Since MCP uses stdout for JSON-RPC communication, ANY stdout log will corrupt
+  // the protocol and cause the client (Claude/OpenCode) to disconnect.
+  const originalConsoleLog = console.log;
+  console.log = function() {
+    console.error.apply(console, arguments as any);
+  };
+
   const server = new MCPServer(config);
 
   try {
