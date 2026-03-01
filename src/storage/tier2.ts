@@ -1,11 +1,32 @@
 import type Database from 'better-sqlite3';
 import type { FileMetadata, Decision, SearchResult, DependencyRelation, CodeSymbol, Import, Export, SymbolKind } from '../types/index.js';
 
+// Patterns to exclude from search results (stale data that shouldn't be indexed)
+const EXCLUDED_PATH_PATTERNS = [
+  'node_modules',
+  '.git',
+  'dist/',
+  'build/',
+  '.next/',
+  'coverage/',
+  '__pycache__',
+  '.pytest_cache',
+  'vendor/',
+  '.venv/',
+  'venv/',
+];
+
 export class Tier2Storage {
   private db: Database.Database;
 
   constructor(db: Database.Database) {
     this.db = db;
+  }
+
+  // Check if a path should be excluded from results
+  private shouldExcludePath(path: string): boolean {
+    const normalizedPath = path.replace(/\\/g, '/');
+    return EXCLUDED_PATH_PATTERNS.some(pattern => normalizedPath.includes(pattern));
   }
 
   // File operations
@@ -63,25 +84,50 @@ export class Tier2Storage {
     const stmt = this.db.prepare(`
       SELECT id, path, content_hash as contentHash, preview, language,
              size_bytes as sizeBytes, last_modified as lastModified, indexed_at as indexedAt
-      FROM files ORDER BY path
+      FROM files
+      WHERE path NOT LIKE '%node_modules%'
+        AND path NOT LIKE '%.git%'
+        AND path NOT LIKE '%/dist/%'
+        AND path NOT LIKE '%/build/%'
+      ORDER BY path
     `);
     return stmt.all() as FileMetadata[];
   }
 
   getFileCount(): number {
-    const stmt = this.db.prepare('SELECT COUNT(*) as count FROM files');
+    const stmt = this.db.prepare(`
+      SELECT COUNT(*) as count FROM files
+      WHERE path NOT LIKE '%node_modules%'
+        AND path NOT LIKE '%.git%'
+        AND path NOT LIKE '%/dist/%'
+        AND path NOT LIKE '%/build/%'
+    `);
     const result = stmt.get() as { count: number };
     return result.count;
   }
 
   getTotalLines(): number {
-    const stmt = this.db.prepare('SELECT COALESCE(SUM(line_count), 0) as total FROM files');
+    const stmt = this.db.prepare(`
+      SELECT COALESCE(SUM(line_count), 0) as total FROM files
+      WHERE path NOT LIKE '%node_modules%'
+        AND path NOT LIKE '%.git%'
+        AND path NOT LIKE '%/dist/%'
+        AND path NOT LIKE '%/build/%'
+    `);
     const result = stmt.get() as { total: number };
     return result.total;
   }
 
   getLanguages(): string[] {
-    const stmt = this.db.prepare('SELECT DISTINCT language FROM files WHERE language IS NOT NULL ORDER BY language');
+    const stmt = this.db.prepare(`
+      SELECT DISTINCT language FROM files
+      WHERE language IS NOT NULL
+        AND path NOT LIKE '%node_modules%'
+        AND path NOT LIKE '%.git%'
+        AND path NOT LIKE '%/dist/%'
+        AND path NOT LIKE '%/build/%'
+      ORDER BY language
+    `);
     const results = stmt.all() as { language: string }[];
     return results.map(r => r.language);
   }
@@ -131,13 +177,14 @@ export class Tier2Storage {
     // Sort by similarity descending
     results.sort((a, b) => b.similarity - a.similarity);
 
-    // Get top results with file metadata
-    const topResults = results.slice(0, limit);
+    // Get top results with file metadata, filtering out excluded paths
     const searchResults: SearchResult[] = [];
 
-    for (const { fileId, similarity } of topResults) {
+    for (const { fileId, similarity } of results) {
+      if (searchResults.length >= limit) break;
+
       const file = this.getFileById(fileId);
-      if (file) {
+      if (file && !this.shouldExcludePath(file.path)) {
         searchResults.push({
           file: file.path,
           preview: file.preview,
@@ -511,6 +558,10 @@ export class Tier2Storage {
       FROM symbols s
       JOIN files f ON s.file_id = f.id
       WHERE s.name LIKE ?
+        AND f.path NOT LIKE '%node_modules%'
+        AND f.path NOT LIKE '%.git%'
+        AND f.path NOT LIKE '%/dist/%'
+        AND f.path NOT LIKE '%/build/%'
     `;
 
     const params: (string | number)[] = [`%${name}%`];
@@ -558,6 +609,10 @@ export class Tier2Storage {
       FROM symbols s
       JOIN files f ON s.file_id = f.id
       WHERE s.name = ?
+        AND f.path NOT LIKE '%node_modules%'
+        AND f.path NOT LIKE '%.git%'
+        AND f.path NOT LIKE '%/dist/%'
+        AND f.path NOT LIKE '%/build/%'
     `;
 
     const params: string[] = [name];
@@ -600,7 +655,14 @@ export class Tier2Storage {
   }
 
   getSymbolCount(): number {
-    const stmt = this.db.prepare('SELECT COUNT(*) as count FROM symbols');
+    const stmt = this.db.prepare(`
+      SELECT COUNT(*) as count FROM symbols s
+      JOIN files f ON s.file_id = f.id
+      WHERE f.path NOT LIKE '%node_modules%'
+        AND f.path NOT LIKE '%.git%'
+        AND f.path NOT LIKE '%/dist/%'
+        AND f.path NOT LIKE '%/build/%'
+    `);
     const result = stmt.get() as { count: number };
     return result.count;
   }

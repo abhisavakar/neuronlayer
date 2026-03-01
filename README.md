@@ -5,7 +5,9 @@
 NeuronLayer is an MCP server that indexes your codebase and gives AI assistants like Claude the ability to understand your project's structure, dependencies, and history across sessions.
 
 [![npm version](https://img.shields.io/npm/v/neuronlayer.svg)](https://www.npmjs.com/package/neuronlayer)
-[![npm downloads](https://img.shields.io/npm/dw/neuronlayer.svg)](https://www.npmjs.com/package/neuronlayer)
+[![total downloads](https://img.shields.io/npm/dt/neuronlayer.svg)](https://www.npmjs.com/package/neuronlayer)
+[![weekly downloads](https://img.shields.io/npm/dw/neuronlayer.svg)](https://www.npmjs.com/package/neuronlayer)
+[![daily downloads](https://img.shields.io/npm/dd/neuronlayer.svg)](https://www.npmjs.com/package/neuronlayer)
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933.svg)](https://nodejs.org/)
 [![MCP](https://img.shields.io/badge/MCP-Compatible-blue.svg)](https://modelcontextprotocol.io/)
