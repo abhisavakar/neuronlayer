@@ -1,6 +1,6 @@
-# MemoryLayer + Claude Code Setup Guide
+# NeuronLayer + Claude Code Setup Guide
 
-This guide explains how to configure MemoryLayer as an MCP server for [Claude Code](https://code.claude.com/) (Anthropic's CLI tool).
+This guide explains how to configure NeuronLayer as an MCP server for [Claude Code](https://code.claude.com/) (Anthropic's CLI tool).
 
 ---
 
@@ -8,15 +8,15 @@ This guide explains how to configure MemoryLayer as an MCP server for [Claude Co
 
 1. **Node.js 18+** installed
 2. **Claude Code** installed (`npm install -g @anthropic-ai/claude-code`)
-3. **MemoryLayer** built (`npm run build`)
+3. **NeuronLayer** built (`npm run build`)
 
 ---
 
 ## Quick Setup (Recommended)
 
-The easiest and most reliable way to configure MemoryLayer for Claude Code is using our automated initialization command.
+The easiest and most reliable way to configure NeuronLayer for Claude Code is using our automated initialization command.
 
-### Step 1: Initialize MemoryLayer
+### Step 1: Initialize NeuronLayer
 
 Run this command in the root of your project:
 
@@ -24,7 +24,7 @@ Run this command in the root of your project:
 npx neuronlayer init .
 ```
 
-This will automatically configure `.mcp.json` in your project with the exact absolute paths and platform-specific commands required for Claude Code to connect smoothly to MemoryLayer.
+This will automatically configure `.mcp.json` in your project with the exact absolute paths and platform-specific commands required for Claude Code to connect smoothly to NeuronLayer.
 
 ### Step 2: Verify Connection
 
@@ -81,7 +81,7 @@ If you want to create `.mcp.json` in your project root manually:
     "neuronlayer": {
       "type": "stdio",
       "command": "node",
-      "args": ["/absolute/path/to/memorylayer/dist/index.js", "--project", "."],
+      "args": ["/absolute/path/to/neuronlayer/dist/index.js", "--project", "."],
       "env": {}
     }
   }
@@ -115,7 +115,7 @@ On native Windows (not WSL), use the `cmd /c` wrapper for proper execution:
 
 ```bash
 # Using CLI
-claude mcp add --transport stdio memorylayer -- cmd /c node C:\path\to\memorylayer\dist\index.js --project .
+claude mcp add --transport stdio neuronlayer -- cmd /c node C:\path\to\neuronlayer\dist\index.js --project .
 ```
 
 **In `.mcp.json`:**
@@ -123,10 +123,10 @@ claude mcp add --transport stdio memorylayer -- cmd /c node C:\path\to\memorylay
 ```json
 {
   "mcpServers": {
-    "memorylayer": {
+    "neuronlayer": {
       "type": "stdio",
       "command": "cmd",
-      "args": ["/c", "node", "C:\\path\\to\\memorylayer\\dist\\index.js", "--project", "."],
+      "args": ["/c", "node", "C:\\path\\to\\neuronlayer\\dist\\index.js", "--project", "."],
       "env": {}
     }
   }
@@ -138,13 +138,13 @@ claude mcp add --transport stdio memorylayer -- cmd /c node C:\path\to\memorylay
 WSL works like Linux:
 
 ```bash
-claude mcp add --transport stdio memorylayer -- node /path/to/memorylayer/dist/index.js --project .
+claude mcp add --transport stdio neuronlayer -- node /path/to/neuronlayer/dist/index.js --project .
 ```
 
 ### macOS / Linux
 
 ```bash
-claude mcp add --transport stdio memorylayer -- node /path/to/memorylayer/dist/index.js --project .
+claude mcp add --transport stdio neuronlayer -- node /path/to/neuronlayer/dist/index.js --project .
 ```
 
 **In `.mcp.json`:**
@@ -152,10 +152,10 @@ claude mcp add --transport stdio memorylayer -- node /path/to/memorylayer/dist/i
 ```json
 {
   "mcpServers": {
-    "memorylayer": {
+    "neuronlayer": {
       "type": "stdio",
       "command": "node",
-      "args": ["/Users/you/memorylayer/dist/index.js", "--project", "."],
+      "args": ["/Users/you/neuronlayer/dist/index.js", "--project", "."],
       "env": {}
     }
   }
@@ -166,29 +166,29 @@ claude mcp add --transport stdio memorylayer -- node /path/to/memorylayer/dist/i
 
 ## After npm Publish
 
-Once MemoryLayer is published to npm, setup becomes simpler:
+Once NeuronLayer is published to npm, setup becomes simpler:
 
 ### CLI Command
 
 ```bash
 # Install globally
-npm install -g memorylayer
+npm install -g neuronlayer
 
 # Add to Claude Code
-claude mcp add --transport stdio memorylayer -- memorylayer --project .
+claude mcp add --transport stdio neuronlayer -- neuronlayer --project .
 ```
 
 ### Using npx
 
 ```bash
 # Without installation
-claude mcp add --transport stdio memorylayer -- npx -y memorylayer --project .
+claude mcp add --transport stdio neuronlayer -- npx -y neuronlayer --project .
 ```
 
 **Windows (with npx):**
 
 ```bash
-claude mcp add --transport stdio memorylayer -- cmd /c npx -y memorylayer --project .
+claude mcp add --transport stdio neuronlayer -- cmd /c npx -y neuronlayer --project .
 ```
 
 ### Project `.mcp.json`
@@ -196,10 +196,10 @@ claude mcp add --transport stdio memorylayer -- cmd /c npx -y memorylayer --proj
 ```json
 {
   "mcpServers": {
-    "memorylayer": {
+    "neuronlayer": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "memorylayer", "--project", "."],
+      "args": ["-y", "neuronlayer", "--project", "."],
       "env": {}
     }
   }
@@ -210,18 +210,18 @@ claude mcp add --transport stdio memorylayer -- cmd /c npx -y memorylayer --proj
 
 ## Environment Variables
 
-### MemoryLayer Configuration
+### NeuronLayer Configuration
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MEMORYLAYER_MAX_TOKENS` | 6000 | Maximum tokens for context assembly |
-| `MEMORYLAYER_DEBUG` | false | Enable debug logging |
+| `NEURONLAYER_MAX_TOKENS` | 6000 | Maximum tokens for context assembly |
+| `NEURONLAYER_DEBUG` | false | Enable debug logging |
 
 ```bash
 claude mcp add --transport stdio \
-  --env MEMORYLAYER_MAX_TOKENS=8000 \
-  --env MEMORYLAYER_DEBUG=true \
-  memorylayer -- node dist/index.js --project .
+  --env NEURONLAYER_MAX_TOKENS=8000 \
+  --env NEURONLAYER_DEBUG=true \
+  neuronlayer -- node dist/index.js --project .
 ```
 
 ### Claude Code MCP Settings
@@ -240,7 +240,7 @@ MCP_TIMEOUT=120000 MAX_MCP_OUTPUT_TOKENS=50000 claude
 
 ## Available MCP Tools
 
-Once connected, Claude Code can use these MemoryLayer tools:
+Once connected, Claude Code can use these NeuronLayer tools:
 
 ### Core Tools
 
@@ -345,16 +345,16 @@ Ensure you're using the `cmd /c` wrapper:
 
 ```bash
 # Wrong
-claude mcp add --transport stdio memorylayer -- node dist/index.js --project .
+claude mcp add --transport stdio neuronlayer -- node dist/index.js --project .
 
 # Correct
-claude mcp add --transport stdio memorylayer -- cmd /c node dist/index.js --project .
+claude mcp add --transport stdio neuronlayer -- cmd /c node dist/index.js --project .
 ```
 
 ### "Server not found" or "ENOENT"
 
 1. Verify the path to `dist/index.js` is correct and absolute
-2. Ensure MemoryLayer is built: `npm run build`
+2. Ensure NeuronLayer is built: `npm run build`
 3. Check Node.js is in your PATH
 
 ### "MCP server not connected"
@@ -395,7 +395,7 @@ Or set in `.mcp.json`:
 ```json
 {
   "mcpServers": {
-    "memorylayer": {
+    "neuronlayer": {
       "type": "stdio",
       "command": "node",
       "args": ["dist/index.js", "--project", "."],
@@ -417,13 +417,13 @@ claude --log-level DEBUG
 
 ## Importing from Claude Desktop
 
-If you already have MemoryLayer configured in Claude Desktop:
+If you already have NeuronLayer configured in Claude Desktop:
 
 ```bash
 # Import all servers from Claude Desktop
 claude mcp add-from-claude-desktop
 
-# Select memorylayer from the list
+# Select neuronlayer from the list
 
 # Verify import
 claude mcp list
@@ -433,14 +433,14 @@ claude mcp list
 
 ## Data Storage
 
-MemoryLayer stores data locally:
+NeuronLayer stores data locally:
 
 ```
-~/.memorylayer/
+~/.neuronlayer/
 ├── registry.json          # Project registry
 └── projects/
     └── {project-name}-{hash}/
-        ├── memorylayer.db  # SQLite database
+        ├── neuronlayer.db  # SQLite database
         └── tier1.json      # Working context
 ```
 
@@ -465,7 +465,7 @@ MemoryLayer stores data locally:
 - [Claude Code MCP Guide](https://code.claude.com/docs/en/mcp)
 - [Claude Code Settings](https://code.claude.com/docs/en/settings)
 - [MCP Protocol Specification](https://modelcontextprotocol.io/)
-- [MemoryLayer Documentation](./INDEX.md)
+- [NeuronLayer Documentation](./INDEX.md)
 
 ---
 
@@ -475,7 +475,7 @@ MemoryLayer stores data locally:
 
 ```bash
 # One-liner setup
-claude mcp add --transport stdio memorylayer -- node /path/to/memorylayer/dist/index.js --project .
+claude mcp add --transport stdio neuronlayer -- node /path/to/neuronlayer/dist/index.js --project .
 ```
 
 ### Full `.mcp.json` Example
@@ -483,16 +483,16 @@ claude mcp add --transport stdio memorylayer -- node /path/to/memorylayer/dist/i
 ```json
 {
   "mcpServers": {
-    "memorylayer": {
+    "neuronlayer": {
       "type": "stdio",
       "command": "node",
       "args": [
-        "/path/to/memorylayer/dist/index.js",
+        "/path/to/neuronlayer/dist/index.js",
         "--project",
         "."
       ],
       "env": {
-        "MEMORYLAYER_MAX_TOKENS": "8000"
+        "NEURONLAYER_MAX_TOKENS": "8000"
       }
     }
   }
