@@ -1,12 +1,9 @@
 {
   "mcpServers": {
     "neuronlayer": {
-      "command": "cmd",
+      "command": "node",
       "args": [
-        "/c",
-        "npx",
-        "-y",
-        "neuronlayer",
+        "C:\\Users\\abhis\\Desktop\\fullstackoverweekend\\MemoryLayer\\dist\\index.js",
         "--project",
         "C:\\Users\\abhis\\Desktop\\fullstackoverweekend\\MemoryLayer"
       ]

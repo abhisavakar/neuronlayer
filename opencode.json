@@ -4,9 +4,10 @@
     "neuronlayer": {
       "type": "local",
       "command": [
-        "npx",
-        "-y",
-        "neuronlayer",
+        "cmd",
+        "/c",
+        "node",
+        "C:\\Users\\abhis\\Desktop\\fullstackoverweekend\\MemoryLayer\\dist\\index.js",
         "--project",
         "C:\\Users\\abhis\\Desktop\\fullstackoverweekend\\MemoryLayer"
       ],

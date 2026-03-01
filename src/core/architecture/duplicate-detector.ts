@@ -19,15 +19,20 @@ export class DuplicateDetector {
   private tier2: Tier2Storage;
   private embeddingGenerator: EmbeddingGenerator;
   private functionIndex: Map<string, FunctionIndex> = new Map();
+  private indexBuilt: boolean = false;
 
   constructor(tier2: Tier2Storage, embeddingGenerator: EmbeddingGenerator) {
     this.tier2 = tier2;
     this.embeddingGenerator = embeddingGenerator;
-    this.buildFunctionIndex();
+    // Do NOT build index synchronously on startup, it blocks the event loop
+    // and causes MCP connection timeouts on large codebases.
+    // this.buildFunctionIndex();
   }
 
   // Build index of all functions in codebase
   private buildFunctionIndex(): void {
+    if (this.indexBuilt) return;
+    
     const files = this.tier2.getAllFiles();
 
     for (const file of files) {
@@ -52,10 +57,21 @@ export class DuplicateDetector {
         }
       }
     }
+    
+    this.indexBuilt = true;
+  }
+
+  // Ensure index is ready before searching
+  private ensureIndex(): void {
+    if (!this.indexBuilt) {
+      this.buildFunctionIndex();
+    }
   }
 
   // Find duplicate or similar functions
   findDuplicates(code: string, threshold: number = 60): Array<FunctionIndex & { similarity: number }> {
+    this.ensureIndex();
+    
     const duplicates: Array<FunctionIndex & { similarity: number }> = [];
 
     // Extract function name from code
@@ -100,6 +116,8 @@ export class DuplicateDetector {
 
   // Suggest existing functions based on intent
   suggestExisting(intent: string, limit: number = 5): ExistingFunction[] {
+    this.ensureIndex();
+    
     const suggestions: Array<FunctionIndex & { relevance: number }> = [];
     const intentLower = intent.toLowerCase();
     const intentWords = intentLower.split(/\s+/);
@@ -260,7 +278,8 @@ export class DuplicateDetector {
   // Refresh the function index
   refresh(): void {
     this.functionIndex.clear();
-    this.buildFunctionIndex();
+    this.indexBuilt = false;
+    // We don't rebuild immediately; it will rebuild on next use
   }
 
   // Get index statistics
@@ -269,6 +288,8 @@ export class DuplicateDetector {
     exportedFunctions: number;
     byPurpose: Record<string, number>;
   } {
+    this.ensureIndex();
+    
     let exportedFunctions = 0;
     const byPurpose: Record<string, number> = {};
 

@@ -267,12 +267,26 @@ function configureMCPClient(
 
   // Execute direct binary to avoid npx network latency which causes 30s timeouts
   const isWindows = process.platform === 'win32';
-  const binName = isWindows ? 'neuronlayer.cmd' : 'neuronlayer';
   
-  config.mcpServers[serverName] = { 
-    command: binName, 
-    args: ['--project', projectPath] 
-  };
+  // Use absolute path to the compiled JS file to avoid cmd wrappers stalling MCP stdin/stdout streams
+  // esbuild bundles everything into dist/index.js.
+  // import.meta.url is file:///.../dist/index.js.
+  // new URL('.', import.meta.url).pathname is /.../dist/
+  const __dirname = new URL('.', import.meta.url).pathname;
+  // Handle Windows paths from import.meta.url which start with /C:/
+  const resolvedPath = resolve(isWindows ? __dirname.substring(1) : __dirname, 'index.js');
+  
+  if (isWindows) {
+    config.mcpServers[serverName] = { 
+      command: 'cmd', 
+      args: ['/c', 'node', resolvedPath, '--project', projectPath] 
+    };
+  } else {
+    config.mcpServers[serverName] = { 
+      command: 'node', 
+      args: [resolvedPath, '--project', projectPath] 
+    };
+  }
 
   try {
     writeFileSync(configPath, JSON.stringify(config, null, 2));
@@ -308,12 +322,22 @@ function configureProjectMCP(
   // Execute direct binary to avoid npx network latency which causes 30s timeouts
   const absoluteProjectPath = resolve(projectPath);
   const isWindows = process.platform === 'win32';
-  const binName = isWindows ? 'neuronlayer.cmd' : 'neuronlayer';
   
-  config.mcpServers['neuronlayer'] = { 
-    command: binName, 
-    args: ['--project', absoluteProjectPath] 
-  };
+  // Use absolute path to the compiled JS file to avoid cmd wrappers stalling MCP stdin/stdout streams
+  const __dirname = new URL('.', import.meta.url).pathname;
+  const resolvedPath = resolve(isWindows ? __dirname.substring(1) : __dirname, 'index.js');
+  
+  if (isWindows) {
+    config.mcpServers['neuronlayer'] = { 
+      command: 'cmd', 
+      args: ['/c', 'node', resolvedPath, '--project', absoluteProjectPath] 
+    };
+  } else {
+    config.mcpServers['neuronlayer'] = { 
+      command: 'node', 
+      args: [resolvedPath, '--project', absoluteProjectPath] 
+    };
+  }
 
   try {
     writeFileSync(configPath, JSON.stringify(config, null, 2));
@@ -349,13 +373,24 @@ function configureOpenCode(
 
   const absoluteProjectPath = resolve(projectPath);
   const isWindows = process.platform === 'win32';
-  const binName = isWindows ? 'neuronlayer.cmd' : 'neuronlayer';
   
-  (config.mcp as Record<string, unknown>)['neuronlayer'] = {
-    type: 'local',
-    command: [binName, '--project', absoluteProjectPath],
-    enabled: true
-  };
+  // Use absolute path to the compiled JS file to avoid cmd wrappers stalling MCP stdin/stdout streams
+  const __dirname = new URL('.', import.meta.url).pathname;
+  const resolvedPath = resolve(isWindows ? __dirname.substring(1) : __dirname, 'index.js');
+  
+  if (isWindows) {
+    (config.mcp as Record<string, unknown>)['neuronlayer'] = {
+      type: 'local',
+      command: ['cmd', '/c', 'node', resolvedPath, '--project', absoluteProjectPath],
+      enabled: true
+    };
+  } else {
+    (config.mcp as Record<string, unknown>)['neuronlayer'] = {
+      type: 'local',
+      command: ['node', resolvedPath, '--project', absoluteProjectPath],
+      enabled: true
+    };
+  }
 
   try {
     writeFileSync(configPath, JSON.stringify(config, null, 2));
